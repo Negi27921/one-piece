@@ -14,9 +14,10 @@
 - **Never-blocking scan** — GET always returns cached data instantly; fresh scans run in background threads
 - Auto paper-trades ₹25,000/pick on every ≥70% confidence signal via GitHub Actions
 - **10 PM daily report** — Telegram + email with P&L, strategy breakdown, and top picks
-- Real-time dashboard with market data, AI chat, portfolio analytics, risk monitoring, and earnings results
+- Real-time dashboard with market data, AI chat, portfolio analytics, risk monitoring, earnings results, and watchlists
 - Kill switch with configurable drawdown limit; auto-exits on target/SL/expiry
 - **Provider abstraction layer** — swap market data, AI, cache, broker, and notification providers by changing env vars
+- **NEO stock profile pipeline** — structured fundamentals, filings, announcements, and technicals via StockInsights.ai
 
 ---
 
@@ -31,6 +32,7 @@
                     │  3:15 PM  paper_trader --check                │
                     │  10:00 PM strategy_agent + daily_report       │
                     │  1st/mo   monthly_report                      │
+                    │  Every 20min results_pipeline (Mon–Fri)       │
                     └─────────────────┬────────────────────────────┘
                                       │
                        ┌──────────────▼──────────────┐
@@ -40,6 +42,9 @@
                        │  cache_entries (L2 cache)    │
                        │  strategy_notes              │
                        │  journal_trades              │
+                       │  earnings_results            │
+                       │  dim_company + fact_* (NEO)  │
+                       │  watchlists + watchlist_items│
                        └──────────────┬──────────────┘
                                       │
           ┌───────────────────────────┼────────────────────────────┐
@@ -48,7 +53,7 @@
   FastAPI Backend             React Dashboard              Telegram Bot
   onepiece-labs.vercel        luffy-labs.vercel            Alerts + Reports
   cloud_main.py               9 pages + lazy loading       Webhook via FastAPI
-  11 API routers              TanStack Query v5
+  14 API routers              TanStack Query v5
   core/ provider layer        Framer Motion
 ```
 
@@ -67,7 +72,7 @@
 
 ```
 one-piece/
-├── core/                           # ← NEW: Provider abstraction layer
+├── core/                           # Provider abstraction layer
 │   ├── config.py                   # Unified Settings from env vars (single source of truth)
 │   ├── market_data.py              # Unified price-fetch API (replaces 3 duplicates)
 │   └── providers/
@@ -81,39 +86,47 @@ one-piece/
 │       │   ├── groq_provider.py      # Llama 3.3 70B
 │       │   ├── gemini_provider.py    # Gemini 2.0 Flash
 │       │   ├── openrouter_provider.py
+│       │   ├── nvidia_provider.py    # ← NEW: NVIDIA NIM — DeepSeek R1 (results pipeline)
 │       │   ├── chain_provider.py     # Cascades through AI_FALLBACK_CHAIN
 │       │   └── mock_provider.py
 │       ├── cache/
 │       │   ├── memory_cache.py       # In-process TTL dict (default, free tier)
 │       │   ├── supabase_cache.py     # cache_entries table (cross-lambda persistence)
 │       │   └── redis_cache.py        # Upstash/Redis (distributed, best)
-│       └── notifications/
-│           ├── telegram_provider.py
-│           ├── email_provider.py     # Resend API
-│           └── multi_provider.py     # Sends to all configured channels
+│       ├── notifications/
+│       │   ├── telegram_provider.py
+│       │   ├── email_provider.py     # Resend API
+│       │   └── multi_provider.py     # Sends to all configured channels
+│       └── stockinsights/            # ← NEW: StockInsights.ai client
+│           ├── client.py             # Async SI.ai client (rate-limited, retry, dead-letter)
+│           └── models.py             # Pydantic models for SI.ai responses
 │
 ├── api/                            # FastAPI application
 │   ├── _config.py                  # Shared CORS, versioning, prefixes
 │   ├── main.py                     # Local dev entry point (DuckDB + WebSocket)
 │   ├── cloud_main.py               # Vercel entry point (Supabase, no WebSocket)
+│   ├── universe.py                 # ← NEW: Canonical stock universe (dim_company, ≥₹1000 Cr)
 │   ├── middleware/security.py      # Security headers
 │   └── routers/
 │       ├── chat.py                 # AI assistant (uses core.market_data — fast_info only, <1s)
+│       ├── earnings.py             # ← NEW: Quarterly earnings cards (from @earnings_pulse OCR)
 │       ├── journal.py              # Live trading journal CRUD + NAV + prices
 │       ├── market.py               # Live market data (indices, FII/DII, movers, filings)
 │       ├── portfolio.py            # Paper portfolio positions and equity curve
+│       ├── profile.py              # ← NEW: NEO stock profile (hydrated from dim_company + fact_*)
 │       ├── risk.py                 # Risk metrics, drawdown, kill switch
 │       ├── screener.py             # NSE/BSE screener + background scan + L2 cache
 │       ├── settings.py             # LLM providers, broker config, agent settings, system-info
 │       ├── strategies.py           # Strategy performance, signals, allocation
 │       ├── system.py               # Kill switch, audit log (local DuckDB)
 │       ├── telegram_bot.py         # Telegram webhook (cloud only)
-│       └── trades.py               # Screener auto-trade log
+│       ├── trades.py               # Screener auto-trade log
+│       └── watchlist.py            # ← NEW: Watchlist CRUD + DeepSeek R1 stock analysis
 │
 ├── execution/                      # Order management system
 │   ├── brokers/
 │   │   ├── base.py                 # BrokerInterface ABC
-│   │   ├── kite.py                 # ← NEW: Zerodha Kite Connect (real-time, recommended)
+│   │   ├── kite.py                 # Zerodha Kite Connect (real-time, recommended)
 │   │   ├── dhan.py                 # Dhan (primary/fallback)
 │   │   └── shoonya.py              # Shoonya/Finvasia (fallback)
 │   ├── router.py                   # SmartOrderRouter: Kite → Dhan → Shoonya
@@ -125,33 +138,63 @@ one-piece/
 │   └── src/
 │       ├── api/
 │       │   ├── client.ts           # Typed HTTP wrapper (timeout, retry, ApiError)
-│       │   ├── queries.ts          # Portfolio, risk, strategy, system hooks
+│       │   ├── earnings-queries.ts # Earnings results hooks
 │       │   ├── market-queries.ts   # Market data hooks (indices, FII/DII, screener)
 │       │   ├── pnl-queries.ts      # P&L calendar, paper positions, journal hooks
+│       │   ├── queries.ts          # Portfolio, risk, strategy, system hooks
 │       │   ├── settings-queries.ts # LLM/broker/alert config hooks + useSystemInfo
+│       │   ├── watchlist-queries.ts # ← NEW: Watchlist + AI analysis hooks
 │       │   └── types.ts            # Shared TypeScript types
+│       ├── components/
+│       │   ├── charts/
+│       │   │   └── ChartDrawer.tsx # ← NEW: Slide-in TradingView OHLCV chart + AI analysis
+│       │   ├── layout/
+│       │   │   ├── Layout.tsx      # Shared layout wrapper
+│       │   │   └── Sidebar.tsx     # ← NEW: Navigation sidebar component
+│       │   └── ui/
+│       │       └── ChatBot.tsx     # ← NEW: Extracted AI chat bot component
 │       ├── pages/
+│       │   ├── EarningsPulse.tsx   # ← NEW: Earnings calendar + rated cards (OCR pipeline)
+│       │   ├── Login.tsx           # Password-gated entry (24h session cookie)
 │       │   ├── Market.tsx          # Market terminal (indices, FII/DII, movers, chat)
-│       │   ├── Screener.tsx        # Stock screener (7 strategies, confidence filters)
 │       │   ├── Portfolio.tsx       # Holdings, P&L calendar, auto-trades, live tab
+│       │   ├── Results.tsx         # Quarterly earnings results (Excellent→Weak)
 │       │   ├── Risk.tsx            # Drawdown, VaR, kill switch status
-│       │   ├── Strategies.tsx      # Per-strategy performance + signal cards
+│       │   ├── Screener.tsx        # Stock screener (7 strategies, confidence filters)
 │       │   ├── Settings.tsx        # Agent config, system-info panel, brokers, alerts
 │       │   ├── TradingJournal.tsx  # Manual live trade journal
-│       │   ├── Results.tsx         # Quarterly earnings results (rated cards)
-│       │   └── Login.tsx           # Password-gated entry
-│       └── App.tsx                 # Route-level lazy loading (code splitting per page)
+│       │   └── Watchlist.tsx       # ← NEW: User watchlists with AI analysis
+│       └── App.tsx                 # Route-level lazy loading (9 pages)
 │
 ├── scripts/
 │   ├── paper_trader.py             # ₹25K/trade, all strategies, target/SL/kill-switch
-│   ├── multibagger_alert.py        # High-conviction alert (3× daily)
+│   ├── multibagger_alert.py        # High-conviction alert (morning + afternoon)
 │   ├── daily_report.py             # 10 PM Telegram + email report
 │   ├── strategy_agent.py           # AI agent: analyses win rates, saves insights
 │   ├── monthly_report.py           # 1st of month P&L summary
+│   ├── neo_poller.py               # ← NEW: NEO master poller (all SI.ai + NSE data streams)
+│   ├── si_realtime_poller.py       # ← NEW: SI.ai filings + announcements real-time poller
+│   ├── results_pipeline.py         # ← NEW: BSE PDF → DeepSeek R1 extraction → Telegram
+│   ├── screener_scraper.py         # ← NEW: Screener.in bulk fundamentals scraper
+│   ├── si_universe_seed.py         # ← NEW: Seeds dim_company from StockInsights.ai
+│   ├── update_fii_dii.py           # ← NEW: Backfills FII/DII flows into Supabase
 │   └── migrations/
-│       ├── 001_app_config.sql      # ← NEW: app_config table (kill switch + agent config)
-│       ├── 002_cache_entries.sql   # ← NEW: cache_entries table (cross-instance L2 cache)
-│       └── 003_signals_table.sql   # ← NEW: normalized signals table (replaces screener JSONB)
+│       ├── 001_app_config.sql      # app_config table (kill switch seed + agent config)
+│       ├── 002_cache_entries.sql   # cache_entries table for CACHE_PROVIDER=supabase
+│       ├── 003_signals_table.sql   # Normalized signals table
+│       ├── 004_journal_trades.sql  # journal_trades schema
+│       ├── 005_quarterly_results.sql
+│       ├── 006_watchlists.sql      # watchlists + watchlist_items tables
+│       ├── 007–016_*.sql           # Universe, industry filter, RLS, permissions
+│       ├── 017_neo_schema.sql      # ← NEW: Full NEO schema (dim_company, fact_*, job_run)
+│       ├── 018_neo_technicals_schema.sql # ← NEW: fact_technicals (OHLCV + indicators)
+│       ├── 019_screener_schema.sql # ← NEW: fact_screener_fundamentals
+│       ├── 020_market_realtime_schema.sql # ← NEW: fact_market_realtime
+│       ├── 021_stock_snapshot_view.sql   # ← NEW: Materialized snapshot view
+│       ├── 022_screener_trigger.sql      # ← NEW: Auto-trigger on scan complete
+│       ├── 023_event_bus_schema.sql      # ← NEW: fact_market_events (AI reaction bus)
+│       ├── 024_journal_trades_broker_fields.sql
+│       └── 025_earnings_results.sql      # ← NEW: earnings_results (OCR pipeline output)
 │
 ├── risk/                           # Kill switch, position sizer, drawdown, limits
 ├── backtest/                       # Strategy backtesting engine
@@ -161,10 +204,16 @@ one-piece/
 └── .github/workflows/
     ├── ci.yml                      # Lint/typecheck/build
     ├── screener_scan.yml           # Daily NSE 500 scan (weekdays)
+    ├── screener_biweekly.yml       # ← NEW: Bi-weekly full NSE scan
     ├── paper_trading.yml           # Open/check paper trades (weekdays)
     ├── daily_report.yml            # 10 PM Telegram + email report
     ├── monthly_report.yml          # 1st of month P&L summary
     ├── multibagger_alert.yml       # Morning + afternoon high-conviction alerts
+    ├── results_pipeline.yml        # ← NEW: BSE earnings pipeline (every 20 min, weekdays)
+    ├── market_realtime.yml         # ← NEW: Real-time market data poller
+    ├── breakout_monitor.yml        # ← NEW: Breakout strategy monitor
+    ├── backfill_results.yml        # ← NEW: Quarterly results backfill
+    ├── universe_agent.yml          # ← NEW: Universe filter agent
     └── keep-alive.yml              # Prevents Vercel cold starts
 ```
 
@@ -188,6 +237,7 @@ Switch any provider by changing an env var — no code changes required.
 | `groq` (default) | Groq Llama 3.3 70B | Free tier, fast |
 | `gemini` | Gemini 2.0 Flash | Free tier fallback |
 | `openrouter` | OpenRouter | Many free models |
+| `nvidia` | NVIDIA NIM DeepSeek R1 | Results pipeline (structured extraction) |
 | `mock` | Static response | Testing |
 
 Cascade: `AI_FALLBACK_CHAIN=groq,gemini,openrouter` (tries each in order)
@@ -224,9 +274,10 @@ SmartOrderRouter auto-picks the best available:
 | `/screener` | Screener | 7 strategies, confidence filter, universe toggle (Nifty 500 / Full NSE), background scan |
 | `/portfolio` | Portfolio | Holdings tab (Paper / Live subtabs), P&L calendar heatmap, Screener Auto-Trades, equity curve |
 | `/risk` | Risk | Drawdown chart, VaR, Sharpe, kill switch status, position/sector limits |
-| `/strategies` | Strategies | Per-strategy allocation bars, Sharpe ratios, signal cards with approve/reject |
 | `/journal` | Trading Journal | Live trades CRUD — add, exit, delete manual positions; NAV from cost basis |
 | `/results` | Earnings Results | Quarterly results with Excellent/Great/Good/Ok/Weak ratings, metric trends, mini sparklines |
+| `/watchlist` | Watchlist | User watchlists with DeepSeek R1 stock analysis and TradingView chart drawer |
+| `/earnings-pulse` | EarningsPulse | Live quarterly earnings cards from @earnings_pulse OCR pipeline — Sales, OPM, PAT trends |
 | `/settings` | Settings | Trading Agent config · System Providers panel · LLM providers · Brokers · Alerts · Risk Monitor |
 
 > All pages use route-level lazy loading (`React.lazy` + `Suspense`) — first paint loads ~80 KB instead of the full bundle.
@@ -343,22 +394,41 @@ GET /api/risk/metrics                   # Drawdown, Sharpe, daily loss, utilizat
 GET /api/risk/limits                    # Position, sector, drawdown, liquidity limits
 ```
 
-### Strategies
+### Earnings (NEW)
 ```
-GET /api/strategies/performance         # Per-strategy Sharpe, return, drawdown, win rate
-GET /api/strategies/signals             # Recent buy/sell signals
-GET /api/strategies/allocation          # Strategy allocation weights
+GET /api/earnings/results               # Paginated earnings cards (latest first)
+GET /api/earnings/results?quarter=Q4FY26&rating=Excellent
+GET /api/earnings/stats                 # Aggregate stats (counts by rating)
+GET /api/earnings/quarters              # Available quarters list
+```
+Source: @earnings_pulse Telegram → Gemini Flash OCR → `earnings_results` table (migration 025)
+
+### Watchlists (NEW)
+```
+GET  /api/watchlists                    # User's watchlists
+POST /api/watchlists                    # Create new watchlist
+GET  /api/watchlists/{id}/items         # Items in watchlist
+POST /api/watchlists/{id}/items         # Add ticker to watchlist
+DELETE /api/watchlists/{id}/items/{ticker}
+POST /api/watchlists/{id}/analyse       # DeepSeek R1 AI analysis of watchlist
+```
+
+### Profile (NEW — NEO)
+```
+GET /api/profile/{symbol}               # Fully-hydrated stock profile (dim_company + fact_*)
+                                        # Single source of truth for all LLM agents
+                                        # p95 target: <200ms (pre-materialized, no external calls)
 ```
 
 ### Settings
 ```
-GET  /api/settings/providers            # LLM providers (Groq, Gemini, OpenRouter, Ollama)
+GET  /api/settings/providers            # LLM providers (Groq, Gemini, OpenRouter, NVIDIA)
 POST /api/settings/providers/probe      # Live test all LLM providers
 GET  /api/settings/brokers              # Broker connection status
 GET  /api/settings/alerts               # Telegram + email config
 POST /api/settings/alerts/test-telegram # Send test Telegram message
 GET  /api/settings/env                  # Environment summary (providers, mode, log level)
-GET  /api/settings/system-info          # ← NEW: Full provider health + credential status
+GET  /api/settings/system-info          # Full provider health + credential status
 GET  /api/settings/agent-config         # Trading agent parameters
 PUT  /api/settings/agent-config         # Update agent parameters (persisted to Supabase)
 ```
@@ -413,8 +483,10 @@ Exit statuses: `open` → `target_hit` / `sl_hit` / `expired` / `killed`
 | 10:30 AM | Mon–Fri | Multibagger alert (morning) |
 | 2:00 PM | Mon–Fri | Multibagger alert (afternoon) |
 | 3:15 PM | Mon–Fri | Check exits (target/SL/expiry) before close |
+| Every 20 min | Mon–Fri | BSE results pipeline (PDF → AI extraction → Telegram) |
 | 10:00 PM | Mon–Fri | Strategy agent analysis + Telegram/email report |
 | 1st of month | Always | Monthly P&L summary |
+| Biweekly | Mon–Fri | Full NSE screener scan |
 
 ---
 
@@ -428,12 +500,27 @@ Resend API key (email alerts)
 Telegram bot token
 ```
 
-### Run migrations in Supabase SQL Editor (one-time)
+### Run migrations in Supabase SQL Editor (run in order)
 ```sql
--- Run each file in order:
-scripts/migrations/001_app_config.sql   -- kill switch + agent config table
-scripts/migrations/002_cache_entries.sql -- cross-lambda cache table
-scripts/migrations/003_signals_table.sql -- normalized signals (future)
+-- Core (required):
+scripts/migrations/001_app_config.sql      -- kill switch + agent config table
+scripts/migrations/002_cache_entries.sql   -- cross-lambda cache table
+scripts/migrations/003_signals_table.sql   -- normalized signals
+
+-- Watchlists:
+scripts/migrations/006_watchlists.sql
+
+-- NEO data pipeline (optional, for full stock profile):
+scripts/migrations/017_neo_schema.sql
+scripts/migrations/018_neo_technicals_schema.sql
+scripts/migrations/019_screener_schema.sql
+scripts/migrations/020_market_realtime_schema.sql
+scripts/migrations/021_stock_snapshot_view.sql
+scripts/migrations/022_screener_trigger.sql
+scripts/migrations/023_event_bus_schema.sql
+
+-- Earnings pipeline:
+scripts/migrations/025_earnings_results.sql
 ```
 
 ### Backend (local dev)
@@ -500,7 +587,7 @@ REPORT_EMAIL=you@example.com
 ### Provider selection (all optional — defaults shown)
 ```bash
 MARKET_PROVIDER=yfinance        # yfinance | nse | kite | mock
-AI_PROVIDER=groq                # groq | gemini | openrouter | mock
+AI_PROVIDER=groq                # groq | gemini | openrouter | nvidia | mock
 AI_FALLBACK_CHAIN=groq,gemini,openrouter
 CACHE_PROVIDER=memory           # memory | supabase | redis
 NOTIFY_PROVIDER=telegram        # telegram | email | both
@@ -526,6 +613,13 @@ UPSTASH_REDIS_URL=https://...
 UPSTASH_REDIS_TOKEN=...
 ```
 
+### NEO data pipeline (optional)
+```bash
+SI_API_KEY=...                  # StockInsights.ai API key (fundamentals, filings)
+NVIDIA_API_KEY=nvapi-...        # NVIDIA NIM (DeepSeek R1 for results pipeline)
+NVIDIA_MODEL=deepseek-ai/deepseek-r1  # optional, default
+```
+
 ### Feature flags
 ```bash
 ENABLE_PAPER_TRADING=true       # default
@@ -538,7 +632,7 @@ DEPLOYMENT_MODE=cloud           # cloud | local | fly | railway
 
 ## Supabase Schema
 
-### Core tables (run migration files in `scripts/migrations/`)
+### Core tables (migrations 001–006)
 
 ```sql
 -- Migration 001: app_config (kill switch + agent config)
@@ -548,29 +642,13 @@ CREATE TABLE app_config (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Migration 002: cache_entries (L2 cache, replaces in-process dict on cold start)
+-- Migration 002: cache_entries (L2 cache)
 CREATE TABLE cache_entries (
     cache_key  TEXT PRIMARY KEY,
     value      JSONB NOT NULL,
     expires_at TIMESTAMPTZ,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
--- Migration 003: signals (normalized, replaces screener_cache JSONB blob)
-CREATE TABLE signals (
-    id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    scan_id    UUID NOT NULL,
-    strategy   TEXT NOT NULL,
-    universe   TEXT NOT NULL,
-    ticker     TEXT NOT NULL,
-    scanned_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    ltp        NUMERIC(12, 2),
-    confidence INT,
-    conditions JSONB,
-    sl_pct     NUMERIC(6, 2),
-    target_pct NUMERIC(6, 2),
-    matched    BOOLEAN NOT NULL DEFAULT true
-) PARTITION BY RANGE (scanned_at);
 
 -- Paper trades (existing)
 CREATE TABLE paper_trades (
@@ -619,6 +697,53 @@ CREATE TABLE journal_trades (
 );
 ```
 
+### NEO tables (migrations 017–023)
+
+```sql
+-- dim_company: canonical stock universe (≥₹1000 Cr market cap)
+-- fact_income_statement, fact_balance_sheet, fact_cash_flow: quarterly fundamentals
+-- fact_results_calendar: upcoming and historical earnings dates
+-- fact_filings: BSE/NSE regulatory filings (SI.ai sourced)
+-- fact_announcements_tagged: corporate announcements with AI tags
+-- fact_technicals: daily OHLCV + technical indicators (yFinance)
+-- fact_screener_fundamentals: Screener.in bulk data cache
+-- fact_market_realtime: live price state (refreshed every 5–15 min)
+-- fact_market_events: event bus for AI agent reactions + alerts
+-- job_run: async job queue (SI.ai LLM thesis, data quality checks)
+-- data_quality_log: per-field quality audit trail
+-- si_dlq: dead-letter queue for failed SI.ai calls
+```
+
+### Earnings pipeline table (migration 025)
+
+```sql
+-- earnings_results: quarterly earnings cards from @earnings_pulse OCR
+-- Covers: Sales, OP, OPM, PAT, EPS — QoQ and YoY changes
+-- Rated: Excellent / Great / Good / Ok / Weak (deterministic scoring)
+CREATE TABLE earnings_results (
+    id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    ticker            TEXT NOT NULL,
+    company           TEXT,
+    sector            TEXT,
+    quarter           TEXT,       -- e.g. Q4FY26
+    sales_cr          NUMERIC,
+    sales_qoq_pct     NUMERIC,
+    sales_yoy_pct     NUMERIC,
+    op_cr             NUMERIC,
+    opm_pct           NUMERIC,
+    pat_cr            NUMERIC,
+    pat_qoq_pct       NUMERIC,
+    pat_yoy_pct       NUMERIC,
+    eps               NUMERIC,
+    cmp               NUMERIC,
+    pulse_rating      TEXT,       -- Excellent | Great | Good | Ok | Weak
+    confidence_score  INTEGER,
+    source            TEXT,       -- telegram_ocr | bse_xbrl
+    filed_at          TIMESTAMPTZ,
+    created_at        TIMESTAMPTZ DEFAULT now()
+);
+```
+
 ---
 
 ## Tech Stack
@@ -634,7 +759,9 @@ CREATE TABLE journal_trades (
 | UI state | Zustand 5 |
 | Database | Supabase (PostgreSQL cloud), DuckDB (local dev) |
 | AI Chat | Groq Llama 3.3 70B → Gemini Flash → OpenRouter (cascade, <9s) |
+| AI Extraction | NVIDIA NIM DeepSeek R1 (results pipeline, structured PDF extraction) |
 | Market data | yFinance (default), nsepython, BeautifulSoup4 (FII/DII scraping) |
+| Fundamentals | StockInsights.ai (NEO pipeline — filings, announcements, income statements) |
 | Email | Resend API |
 | Notifications | Telegram Bot API |
 | Scheduling | GitHub Actions cron |
@@ -648,14 +775,17 @@ CREATE TABLE journal_trades (
 | Secret | Purpose |
 |--------|---------|
 | `SUPABASE_URL` | Database URL |
-| `SUPABASE_KEY` | Database service key |
+| `SUPABASE_KEY` | Database anon key |
+| `SUPABASE_SERVICE_KEY` | Service role key (earnings pipeline) |
 | `RESEND_API_KEY` | Email (Resend) |
 | `REPORT_EMAIL` | Recipient email address |
 | `TELEGRAM_BOT_TOKEN` | Telegram bot |
 | `TELEGRAM_CHAT_ID` | Telegram chat/group ID |
 | `GROQ_API_KEY` | AI chat (primary) + strategy agent |
-| `GEMINI_API_KEY` | AI chat fallback #1 |
+| `GEMINI_API_KEY` | AI chat fallback #1 + OCR pipeline |
 | `OPENROUTER_API_KEY` | AI chat fallback #2 (optional) |
+| `NVIDIA_API_KEY` | NVIDIA NIM DeepSeek R1 (results pipeline) |
+| `SI_API_KEY` | StockInsights.ai (NEO fundamentals pipeline) |
 | `KITE_API_KEY` | Zerodha Kite (optional — enables real-time data + live trading) |
 | `KITE_ACCESS_TOKEN` | Zerodha Kite session (refresh daily at 6AM IST) |
 | `DHAN_CLIENT_ID` | Dhan broker (optional — fallback if Kite not set) |
@@ -667,15 +797,19 @@ CREATE TABLE journal_trades (
 
 **Provider abstraction** — All external dependencies (market data, AI, cache, notifications, broker) are abstracted behind interfaces in `core/providers/`. Switch providers by setting env vars. Adding `KITE_API_KEY` automatically routes orders through Kite. Setting `CACHE_PROVIDER=supabase` makes screener results survive Vercel cold starts.
 
+**NEO stock profile pipeline** — `api/universe.py` defines the canonical stock universe from `dim_company` (≥₹1000 Cr market cap). `api/routers/profile.py` assembles a fully-hydrated profile object from pre-materialized Supabase tables — no external calls on the request path. p95 target is <200ms. The NEO poller (`scripts/neo_poller.py`) runs 6 concurrent data streams: SI.ai announcements, SI.ai filings, quarterly fundamentals, results calendar, yFinance technicals, and NSE bulk/block deals.
+
+**EarningsPulse pipeline** — `scripts/results_pipeline.py` polls BSE every 20 minutes (weekdays) for new financial results filings, downloads PDFs, extracts text via pdfminer, sends to NVIDIA NIM DeepSeek R1 for structured JSON extraction, computes a deterministic rating (Excellent→Weak), and pushes to the `earnings_results` table + Telegram. The `/earnings-pulse` frontend page polls `/api/earnings/results`.
+
 **NAV computation** — `/api/journal/summary` uses cost-basis NAV (`buy_price × quantity`), not live prices. Avoids sequential yFinance calls in the critical path. Live prices fetched separately via `/api/journal/prices` with parallel `ThreadPoolExecutor` (6s timeout).
 
 **Never-block screener** — GET `/api/screener/results` always returns instantly from L1 (in-process dict) or L2 cache (provider-selected). Background scans run in `ThreadPoolExecutor`. Partial results stream back during scan via `_scan_progress`.
 
 **AI chat timeout** — `ticker.info` (3–10s) was replaced with `ticker.fast_info` (<1s) via `core.market_data.get_stock_context()`. Total chat budget is 8.5s, within Vercel's 10s function timeout.
 
-**Route-level lazy loading** — All 8 pages use `React.lazy()` + `Suspense`. First paint downloads ~80 KB instead of the full ~235 KB bundle.
+**Route-level lazy loading** — All 9 pages use `React.lazy()` + `Suspense`. First paint downloads ~80 KB instead of the full ~235 KB bundle.
 
-**Supabase migrations** — Run `scripts/migrations/001_*.sql` → `002_*.sql` → `003_*.sql` in order via Supabase SQL Editor. Migration 002 enables `CACHE_PROVIDER=supabase`. Migration 001 enables `/api/settings/agent-config` persistence.
+**Supabase migrations** — Run `scripts/migrations/001_*.sql` → `002_*.sql` → `003_*.sql` in order via Supabase SQL Editor. Run NEO migrations (017–023) if using the StockInsights.ai pipeline. Run 025 if using the earnings OCR pipeline.
 
 For full system documentation see [ARCHITECTURE.md](ARCHITECTURE.md).
 
