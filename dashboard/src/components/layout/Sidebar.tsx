@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import {
   Terminal, ScanSearch, LayoutDashboard,
   Settings2, ChevronLeft, LogOut,
-  Sun, Moon, BookOpen, TrendingUp, Star, Zap,
+  Sun, Moon, BookOpen, TrendingUp, Star, Zap, BrainCircuit,
 } from "lucide-react";
 import { AUTH_KEY, LOCK_KEY, FAIL_KEY } from "@/pages/Login";
 import { useUIStore } from "@/store/ui";
@@ -17,6 +17,7 @@ const NAV = [
   { to: "/results",         icon: TrendingUp,      label: "Results",    end: false },
   { to: "/earnings-pulse", icon: Zap,             label: "Earnings",   end: false },
   { to: "/watchlist",      icon: Star,            label: "Watchlist",  end: false },
+  { to: "/hedge-fund",     icon: BrainCircuit,    label: "Hedge Fund", end: false },
   { to: "/journal",    icon: BookOpen,        label: "Journal",    end: false },
   { to: "/settings",   icon: Settings2,       label: "Settings",   end: false },
 ];

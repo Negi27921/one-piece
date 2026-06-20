@@ -8,6 +8,7 @@ import { useJournalSummary } from "@/api/pnl-queries";
 import { formatCurrency, formatPct } from "@/lib/utils";
 import { useUIStore } from "@/store/ui";
 import { cn } from "@/lib/utils";
+import { FridayHeaderBtn } from "@/components/ui/FridayPanel";
 
 interface HeaderProps { title: string; subtitle?: string; }
 
@@ -275,6 +276,10 @@ export function Header({ title, subtitle }: HeaderProps) {
             <Bell style={{ width: 14, height: 14 }} />
             <Zap style={{ position: "absolute", top: 4, right: 4, width: 6, height: 6, fill: "var(--accent)", color: "var(--accent)" }} />
           </button>
+
+          {/* FRIDAY — AI assistant icon */}
+          <div style={{ width: 1, height: 20, background: "var(--border)", margin: "0 4px" }} />
+          <FridayHeaderBtn />
         </div>
       </div>
     </div>

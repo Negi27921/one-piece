@@ -1,6 +1,6 @@
 -- Migration 020: Live market state — fact_market_realtime
 -- Strict separation: this table NEVER holds fundamental snapshot data.
--- Refresh cadence: every 5–15 min during market hours (market_realtime_poller.py).
+-- Refresh cadence: every 5–15 min dteuring market hours (market_realtime_poller.py).
 -- Primary key is clean ticker symbol (no .NS / .BO suffix).
 -- Run after 019_screener_schema.sql
 

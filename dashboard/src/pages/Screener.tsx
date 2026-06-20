@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ScanSearch, RefreshCw, CheckCircle2, XCircle, TrendingUp, TrendingDown, ChevronDown, ChevronUp, Filter, Loader2, Rocket, Layers, Zap, ArrowUpRight, GitMerge, BarChart3, Globe, ExternalLink, Star, BookOpen, TrendingUp as PnlIcon, Calendar, Send, Bot, Clock, Award, Trash2 } from "lucide-react";
+import { ScanSearch, RefreshCw, CheckCircle2, XCircle, TrendingUp, TrendingDown, ChevronDown, ChevronUp, Filter, Loader2, Rocket, Layers, Zap, ArrowUpRight, GitMerge, BarChart3, Globe, ExternalLink, Star, BookOpen, TrendingUp as PnlIcon, Calendar, Send, Bot, Clock, Award } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { useScreener, useScanChunk, useBatchPrices, type ScreenerResult } from "@/api/market-queries";
 import { useAnalyseStock } from "@/api/watchlist-queries";

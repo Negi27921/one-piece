@@ -16,6 +16,7 @@ const TradingJournalPage = lazy(() => import("@/pages/TradingJournal").then(m =>
 const ResultsPage        = lazy(() => import("@/pages/Results").then(m => ({ default: m.ResultsPage })));
 const WatchlistPage      = lazy(() => import("@/pages/Watchlist").then(m => ({ default: m.WatchlistPage })));
 const EarningsPulsePage  = lazy(() => import("@/pages/EarningsPulse").then(m => ({ default: m.EarningsPulsePage })));
+const HedgeFundPage      = lazy(() => import("@/pages/HedgeFund").then(m => ({ default: m.HedgeFundPage })));
 
 function PageLoader() {
   return (
@@ -111,6 +112,7 @@ export default function App() {
                 <Route path="results"    element={<ResultsPage />} />
                 <Route path="watchlist"       element={<WatchlistPage />} />
                 <Route path="earnings-pulse" element={<EarningsPulsePage />} />
+                <Route path="hedge-fund"    element={<HedgeFundPage />} />
               </Route>
             </Routes>
           </Suspense>

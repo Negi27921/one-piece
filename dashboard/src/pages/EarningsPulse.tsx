@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Zap, TrendingUp, TrendingDown, Search, Filter, RefreshCw, ChevronDown, ChevronUp, BarChart3, ExternalLink, Clock, Award } from "lucide-react";
+import { Zap, TrendingUp, TrendingDown, Search, Filter, RefreshCw, ChevronDown, ChevronUp, ExternalLink, Clock } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import {
   useLatestEarnings, useEarningsStats, useEarningsQuarters,

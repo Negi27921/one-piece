@@ -7,7 +7,8 @@ import { useUIStore } from "@/store/ui";
 import { ChartDrawer } from "@/components/charts/ChartDrawer";
 import { GlobalSearch } from "@/components/ui/GlobalSearch";
 import { ChatBot } from "@/components/ui/ChatBot";
-import { JarvisOrb } from "@/components/ui/JarvisOrb";
+import { FridayPanel } from "@/components/ui/FridayPanel";
+import { FridayProvider } from "@/contexts/FridayContext";
 import { useTheme } from "@/hooks/useTheme";
 
 const pageVariants = {
@@ -17,7 +18,7 @@ const pageVariants = {
 };
 
 export function Layout() {
-  useTheme(); // applies data-theme to documentElement, initialises theme from localStorage
+  useTheme();
   const { connect } = useLiveStore();
   const { chartTarget, openChart, closeChart, searchOpen, openSearch, closeSearch } = useUIStore();
   const { pathname } = useLocation();
@@ -40,46 +41,48 @@ export function Layout() {
   }, [openSearch]);
 
   return (
-    <div
-      className="flex h-screen overflow-hidden"
-      style={{ background: "var(--bg)" }}
-    >
-      {/* Ambient background layers — visible in dark mode */}
-      <div className="grid-bg" aria-hidden="true" />
-      <div className="glow-top" aria-hidden="true" />
+    <FridayProvider>
+      <div
+        className="flex h-screen overflow-hidden"
+        style={{ background: "var(--bg)" }}
+      >
+        <div className="grid-bg" aria-hidden="true" />
+        <div className="glow-top" aria-hidden="true" />
 
-      <Sidebar />
+        <Sidebar />
 
-      {/* Main content area */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <motion.main
-          variants={pageVariants}
-          initial="initial"
-          animate="animate"
-          exit="exit"
-          transition={{ duration: 0.18, ease: "easeOut" }}
-          className="flex-1 overflow-y-auto"
-        >
-          <Outlet />
-        </motion.main>
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          <motion.main
+            variants={pageVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={{ duration: 0.18, ease: "easeOut" }}
+            className="flex-1 overflow-y-auto"
+          >
+            <Outlet />
+          </motion.main>
+        </div>
+
+        {/* Global overlays */}
+        <ChartDrawer
+          symbol={chartTarget?.symbol ?? null}
+          name={chartTarget?.name}
+          onClose={closeChart}
+        />
+        <GlobalSearch
+          open={searchOpen}
+          onClose={closeSearch}
+          onSelect={(symbol, name) => {
+            closeSearch();
+            openChart(symbol, name);
+          }}
+        />
+        {showChatBot && <ChatBot />}
+
+        {/* FRIDAY panel drops from top-right — button is in Header */}
+        <FridayPanel />
       </div>
-
-      {/* Global overlays */}
-      <ChartDrawer
-        symbol={chartTarget?.symbol ?? null}
-        name={chartTarget?.name}
-        onClose={closeChart}
-      />
-      <GlobalSearch
-        open={searchOpen}
-        onClose={closeSearch}
-        onSelect={(symbol, name) => {
-          closeSearch();
-          openChart(symbol, name);
-        }}
-      />
-      {showChatBot && <ChatBot />}
-      <JarvisOrb />
-    </div>
+    </FridayProvider>
   );
 }

@@ -1,20 +1,18 @@
 /**
- * JarvisOrb — animated voice AI button.
+ * JARVIS UI — browser-native, no WebSocket.
  *
- * States:
- *   offline    → dim orb, offline indicator
- *   idle       → slow gentle pulse, arc reactor glow
- *   listening  → bright expanding rings, mic active indicator
- *   processing → spinning orbital constellation dots
- *   speaking   → audio waveform bars + ring oscillation
+ *  JarvisHeaderBtn  arc-reactor icon in the header — click to listen
+ *  JarvisPanel      sliding chat/voice panel anchored below the header
+ *  JarvisOrb        kept as no-op for backward compat
  */
 
 import { AnimatePresence, motion } from "framer-motion";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useJarvis, type JarvisState } from "@/hooks/useJarvis";
+import { useJarvisContext } from "@/contexts/JarvisContext";
+import type { JarvisState } from "@/hooks/useJarvis";
 
-const STATE_COLOR: Record<JarvisState, string> = {
-  offline:    "#334155",
+export const STATE_COLOR: Record<JarvisState, string> = {
+  offline:    "#475569", // browser doesn't support speech APIs
   idle:       "#00d4ff",
   listening:  "#00ff87",
   processing: "#a855f7",
@@ -22,10 +20,10 @@ const STATE_COLOR: Record<JarvisState, string> = {
 };
 
 const STATE_LABEL: Record<JarvisState, string> = {
-  offline:    "OFFLINE",
-  idle:       "STANDBY",
+  offline:    "UNAVAILABLE",
+  idle:       "READY",
   listening:  "LISTENING",
-  processing: "PROCESSING",
+  processing: "THINKING",
   speaking:   "SPEAKING",
 };
 
@@ -33,47 +31,40 @@ const STATE_LABEL: Record<JarvisState, string> = {
 
 function WaveformCanvas({ active }: { active: boolean }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const rafRef = useRef<number>(0);
-  const barsRef = useRef<number[]>(Array.from({ length: 24 }, () => Math.random() * 0.3 + 0.1));
+  const rafRef    = useRef<number>(0);
+  const barsRef   = useRef<number[]>(Array.from({ length: 20 }, () => Math.random() * 0.3 + 0.1));
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d")!;
-
     const animate = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      const w = canvas.width;
-      const h = canvas.height;
+      const w = canvas.width, h = canvas.height;
       const barCount = barsRef.current.length;
-      const barW = (w / barCount) * 0.6;
-      const gap = (w / barCount) * 0.4;
+      const barW = (w / barCount) * 0.55;
+      const gap  = (w / barCount) * 0.45;
 
-      barsRef.current = barsRef.current.map((v) => {
-        if (!active) return v * 0.95 + 0.05 * (Math.random() * 0.15 + 0.05);
-        const target = Math.random() * 0.85 + 0.15;
-        return v * 0.7 + target * 0.3;
-      });
+      barsRef.current = barsRef.current.map(v =>
+        active
+          ? v * 0.7 + (Math.random() * 0.85 + 0.15) * 0.3
+          : v * 0.95 + 0.05 * (Math.random() * 0.15 + 0.05),
+      );
 
       barsRef.current.forEach((v, i) => {
         const x = i * (barW + gap) + gap / 2;
         const barH = v * h;
         const y = (h - barH) / 2;
-
         const grad = ctx.createLinearGradient(0, y, 0, y + barH);
-        grad.addColorStop(0, active ? "rgba(245, 158, 11, 0.9)" : "rgba(0, 212, 255, 0.4)");
-        grad.addColorStop(1, active ? "rgba(245, 158, 11, 0.3)" : "rgba(0, 212, 255, 0.1)");
+        grad.addColorStop(0, active ? "rgba(245,158,11,0.9)" : "rgba(0,212,255,0.4)");
+        grad.addColorStop(1, active ? "rgba(245,158,11,0.2)" : "rgba(0,212,255,0.05)");
         ctx.fillStyle = grad;
-
-        const radius = barW / 2;
         ctx.beginPath();
-        ctx.roundRect(x, y, barW, barH, radius);
+        ctx.roundRect(x, y, barW, barH, barW / 2);
         ctx.fill();
       });
-
       rafRef.current = requestAnimationFrame(animate);
     };
-
     animate();
     return () => cancelAnimationFrame(rafRef.current);
   }, [active]);
@@ -81,533 +72,368 @@ function WaveformCanvas({ active }: { active: boolean }) {
   return (
     <canvas
       ref={canvasRef}
-      width={80}
-      height={32}
-      style={{ opacity: active ? 1 : 0.4, transition: "opacity 0.3s" }}
+      width={64} height={22}
+      style={{ opacity: active ? 1 : 0.3, transition: "opacity 0.3s" }}
     />
   );
 }
 
-// ── Orbital dots ──────────────────────────────────────────────────────────────
+// ── Arc reactor SVG ────────────────────────────────────────────────────────────
 
-function OrbitalDots({ active }: { active: boolean }) {
-  const dots = [
-    { r: 52, size: 3, duration: 2.8, offset: 0 },
-    { r: 52, size: 2, duration: 2.8, offset: 120 },
-    { r: 52, size: 2, duration: 2.8, offset: 240 },
-    { r: 68, size: 2.5, duration: 4.2, offset: 60 },
-    { r: 68, size: 2, duration: 4.2, offset: 180 },
-    { r: 68, size: 2, duration: 4.2, offset: 300 },
-    { r: 84, size: 2, duration: 6.0, offset: 30 },
-    { r: 84, size: 1.5, duration: 6.0, offset: 150 },
-    { r: 84, size: 1.5, duration: 6.0, offset: 270 },
-  ];
-
+function ArcReactorIcon({ color, size = 20, spinning = false }: { color: string; size?: number; spinning?: boolean }) {
   return (
-    <svg
-      width="200"
-      height="200"
-      viewBox="0 0 200 200"
-      style={{ position: "absolute", top: 0, left: 0, pointerEvents: "none" }}
-    >
-      {dots.map((d, i) => (
-        <motion.circle
-          key={i}
-          r={d.size}
-          fill={active ? STATE_COLOR.processing : "rgba(0, 212, 255, 0.5)"}
-          animate={{
-            cx: [
-              100 + d.r * Math.cos((d.offset * Math.PI) / 180),
-              100 + d.r * Math.cos(((d.offset + 180) * Math.PI) / 180),
-              100 + d.r * Math.cos(((d.offset + 360) * Math.PI) / 180),
-            ],
-            cy: [
-              100 + d.r * Math.sin((d.offset * Math.PI) / 180),
-              100 + d.r * Math.sin(((d.offset + 180) * Math.PI) / 180),
-              100 + d.r * Math.sin(((d.offset + 360) * Math.PI) / 180),
-            ],
-            opacity: active ? [0.9, 0.5, 0.9] : [0.3, 0.1, 0.3],
-          }}
-          transition={{
-            duration: d.duration,
-            repeat: Infinity,
-            ease: "linear",
-            delay: i * 0.1,
-          }}
-        />
-      ))}
+    <svg width={size} height={size} viewBox="0 0 28 28" fill="none" style={{ display: "block" }}>
+      <circle cx="14" cy="14" r="12" stroke={color} strokeWidth="1"   strokeOpacity="0.5" />
+      <circle cx="14" cy="14" r="8"  stroke={color} strokeWidth="1.5" strokeOpacity="0.8" />
+      {[0, 120, 240].map((deg, i) => {
+        const rad = (deg * Math.PI) / 180;
+        return (
+          <motion.polygon
+            key={i}
+            points={[
+              [14 + 8 * Math.cos(rad),       14 + 8 * Math.sin(rad)],
+              [14 + 4 * Math.cos(rad + 0.7), 14 + 4 * Math.sin(rad + 0.7)],
+              [14 + 4 * Math.cos(rad - 0.7), 14 + 4 * Math.sin(rad - 0.7)],
+            ].map(([x, y]) => `${x},${y}`).join(" ")}
+            fill={color}
+            fillOpacity="0.85"
+            animate={spinning ? { rotate: 360 } : { rotate: 0 }}
+            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+            style={{ transformOrigin: "14px 14px" }}
+          />
+        );
+      })}
+      <motion.circle
+        cx="14" cy="14" r="3" fill={color}
+        animate={{ opacity: [1, 0.4, 1] }}
+        transition={{ duration: 1.6, repeat: Infinity }}
+      />
     </svg>
   );
 }
 
-// ── Main orb ──────────────────────────────────────────────────────────────────
+// ── Header button ──────────────────────────────────────────────────────────────
 
-export function JarvisOrb() {
+export function JarvisHeaderBtn() {
+  const { state, isMicActive, wakeWordActive, toggleListen, panelOpen, setPanelOpen } = useJarvisContext();
+  const color    = STATE_COLOR[state];
+  const isActive = state === "listening" || state === "processing" || state === "speaking";
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+      {/* Wake-word pulse dot */}
+      {wakeWordActive && !isMicActive && (
+        <motion.div
+          title='Wake word active — say "Hey JARVIS"'
+          animate={{ opacity: [0.3, 0.9, 0.3] }}
+          transition={{ duration: 2.5, repeat: Infinity }}
+          style={{
+            width: 5, height: 5, borderRadius: "50%",
+            background: "#00d4ff", boxShadow: "0 0 4px #00d4ff",
+          }}
+        />
+      )}
+
+      {/* Arc reactor — click = toggle listening */}
+      <motion.button
+        onClick={toggleListen}
+        onContextMenu={e => { e.preventDefault(); setPanelOpen(!panelOpen); }}
+        title={
+          state === "offline"    ? "JARVIS unavailable (browser speech not supported)" :
+          state === "listening"  ? "JARVIS is listening — click to stop" :
+          state === "processing" ? "JARVIS is thinking — click to cancel" :
+          state === "speaking"   ? "JARVIS is speaking — click to stop" :
+          'Click to speak · right-click to open panel · say "Hey JARVIS"'
+        }
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.9 }}
+        animate={{
+          boxShadow: isActive
+            ? [`0 0 8px ${color}55`, `0 0 18px ${color}99`, `0 0 8px ${color}55`]
+            : "0 0 0 transparent",
+        }}
+        transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
+        style={{
+          width: 32, height: 32, borderRadius: "50%",
+          background: `radial-gradient(circle at 35% 35%, ${color}20, rgba(2,4,7,0.9) 70%)`,
+          border: `1.5px solid ${color}45`,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          cursor: state === "offline" ? "not-allowed" : "pointer", position: "relative",
+        }}
+      >
+        <ArcReactorIcon color={color} size={18} spinning={state === "processing"} />
+        {isMicActive && (
+          <motion.div
+            animate={{ opacity: [1, 0.2, 1], scale: [1, 1.5, 1] }}
+            transition={{ duration: 0.55, repeat: Infinity }}
+            style={{
+              position: "absolute", bottom: 2, right: 2,
+              width: 5, height: 5, borderRadius: "50%",
+              background: "#00ff87", boxShadow: "0 0 4px #00ff87",
+            }}
+          />
+        )}
+      </motion.button>
+
+      {/* JARVIS label */}
+      <button
+        onClick={() => setPanelOpen(!panelOpen)}
+        style={{
+          background: panelOpen ? `${color}15` : "transparent",
+          border: `1px solid ${panelOpen ? color + "35" : "transparent"}`,
+          borderRadius: 5,
+          padding: "2px 7px",
+          cursor: "pointer",
+          color,
+          fontFamily: "JetBrains Mono, monospace",
+          fontSize: 9, fontWeight: 700, letterSpacing: "0.12em",
+          transition: "all 0.15s",
+        }}
+        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = color + "50"; }}
+        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = panelOpen ? color + "35" : "transparent"; }}
+      >
+        JARVIS
+      </button>
+    </div>
+  );
+}
+
+// ── Sliding panel ──────────────────────────────────────────────────────────────
+
+export function JarvisPanel() {
   const {
-    state,
-    transcript,
-    messages,
-    isConnected,
-    isMicActive,
-    connect,
-    toggleListen,
-    sendText,
-  } = useJarvis({ autoConnect: false });
+    state, transcript, messages, isMicActive, wakeWordActive,
+    toggleListen, sendText, panelOpen, setPanelOpen,
+  } = useJarvisContext();
 
-  const [expanded, setExpanded] = useState(false);
-  const [textInput, setTextInput] = useState("");
-  const color = STATE_COLOR[state];
+  const [localInput, setLocalInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const color = STATE_COLOR[state];
 
-  // Auto-scroll chat
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const handleOrbClick = useCallback(() => {
-    if (state === "offline") {
-      connect();
-    } else {
-      toggleListen();
-    }
-  }, [state, connect, toggleListen]);
-
-  const handleTextSend = useCallback(() => {
-    const t = textInput.trim();
+  const handleSend = useCallback(() => {
+    const t = localInput.trim();
     if (!t) return;
-    if (!isConnected) connect();
     sendText(t);
-    setTextInput("");
-  }, [textInput, isConnected, connect, sendText]);
-
-  // Ring animation variants per state
-  const ringVariants = {
-    offline:    { scale: 1, opacity: 0.2 },
-    idle:       { scale: [1, 1.04, 1], opacity: [0.3, 0.5, 0.3] },
-    listening:  { scale: [1, 1.15, 1], opacity: [0.7, 1, 0.7] },
-    processing: { scale: [1, 1.08, 1], opacity: [0.5, 0.8, 0.5] },
-    speaking:   { scale: [1, 1.12, 1], opacity: [0.6, 0.9, 0.6] },
-  };
-
-  const ringDuration: Record<JarvisState, number> = {
-    offline: 3, idle: 3, listening: 0.8, processing: 1.2, speaking: 0.9,
-  };
+    setLocalInput("");
+  }, [localInput, sendText]);
 
   return (
-    <>
-      {/* ── Floating button ────────────────────────────────────────────────── */}
-      <div
-        style={{
-          position: "fixed",
-          bottom: 28,
-          right: 28,
-          zIndex: 9999,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "flex-end",
-          gap: 12,
-          pointerEvents: "none",
-        }}
-      >
-        {/* ── Expanded panel ──────────────────────────────────────────────── */}
-        <AnimatePresence>
-          {expanded && (
-            <motion.div
-              initial={{ opacity: 0, y: 20, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 20, scale: 0.95 }}
-              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+    <AnimatePresence>
+      {panelOpen && (
+        <motion.div
+          initial={{ opacity: 0, y: -10, scale: 0.97 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -10, scale: 0.97 }}
+          transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+          style={{
+            position: "fixed",
+            top: 88,
+            right: 16,
+            width: 380,
+            zIndex: 9999,
+            background: "rgba(2, 4, 7, 0.97)",
+            border: `1px solid ${color}28`,
+            borderRadius: 16,
+            overflow: "hidden",
+            boxShadow: `0 0 40px ${color}15, 0 24px 64px rgba(0,0,0,0.65)`,
+            backdropFilter: "blur(20px)",
+          }}
+        >
+          {/* Panel header */}
+          <div style={{
+            padding: "10px 14px",
+            borderBottom: `1px solid ${color}15`,
+            display: "flex", alignItems: "center", gap: 10,
+            background: `linear-gradient(135deg, ${color}06, transparent)`,
+          }}>
+            {/* Mic toggle orb */}
+            <motion.button
+              onClick={toggleListen}
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              animate={{
+                boxShadow: state === "listening" || state === "processing" || state === "speaking"
+                  ? [`0 0 6px ${color}50`, `0 0 14px ${color}80`, `0 0 6px ${color}50`]
+                  : "0 0 0 transparent",
+              }}
+              transition={{ duration: 1, repeat: Infinity }}
+              title={isMicActive ? "Stop listening" : "Start listening"}
               style={{
-                pointerEvents: "auto",
-                width: 340,
-                background: "rgba(2, 4, 7, 0.97)",
-                border: `1px solid ${color}30`,
-                borderRadius: 16,
-                overflow: "hidden",
-                boxShadow: `0 0 40px ${color}20, 0 20px 60px rgba(0,0,0,0.6)`,
-                backdropFilter: "blur(20px)",
+                width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
+                background: `radial-gradient(circle at 35% 35%, ${color}20, rgba(2,4,7,0.9) 70%)`,
+                border: `1.5px solid ${color}50`,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                cursor: "pointer",
               }}
             >
-              {/* Header */}
-              <div
-                style={{
-                  padding: "12px 16px",
-                  borderBottom: `1px solid ${color}20`,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  background: `linear-gradient(135deg, ${color}08, transparent)`,
-                }}
-              >
-                <div
-                  style={{
-                    width: 8, height: 8, borderRadius: "50%",
-                    background: color,
-                    boxShadow: `0 0 8px ${color}`,
-                    animation: "pulse 1.5s ease-in-out infinite",
-                  }}
-                />
-                <span style={{
-                  fontFamily: "JetBrains Mono, monospace",
-                  fontSize: 11,
-                  letterSpacing: "0.15em",
-                  color,
-                  fontWeight: 600,
-                }}>
-                  MARK-XXXIX · {STATE_LABEL[state]}
-                </span>
-                <div style={{ flex: 1 }} />
-                <WaveformCanvas active={state === "speaking"} />
+              <ArcReactorIcon color={color} size={14} spinning={state === "processing"} />
+            </motion.button>
+
+            <div>
+              <div style={{
+                fontFamily: "JetBrains Mono, monospace", fontSize: 10,
+                letterSpacing: "0.14em", color, fontWeight: 700,
+              }}>
+                JARVIS · {STATE_LABEL[state]}
               </div>
-
-              {/* Messages */}
-              <div
-                style={{
-                  height: 280,
-                  overflowY: "auto",
-                  padding: "12px 14px",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 10,
-                }}
-              >
-                {messages.length === 0 && (
-                  <div style={{
-                    textAlign: "center", color: "var(--text-4)",
-                    fontFamily: "JetBrains Mono, monospace",
-                    fontSize: 11, marginTop: 60,
-                  }}>
-                    Press the orb or hit Space to activate
-                  </div>
-                )}
-
-                {messages.map((m, i) => (
-                  <motion.div
-                    key={i}
-                    initial={{ opacity: 0, x: m.role === "user" ? 20 : -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.2 }}
-                    style={{
-                      alignSelf: m.role === "user" ? "flex-end" : "flex-start",
-                      maxWidth: "85%",
-                      background: m.role === "user"
-                        ? "rgba(0, 212, 255, 0.08)"
-                        : `${color}08`,
-                      border: `1px solid ${m.role === "user" ? "rgba(0,212,255,0.2)" : color + "20"}`,
-                      borderRadius: m.role === "user"
-                        ? "12px 12px 2px 12px"
-                        : "12px 12px 12px 2px",
-                      padding: "8px 12px",
-                    }}
-                  >
-                    {m.role === "jarvis" && (
-                      <div style={{
-                        fontFamily: "JetBrains Mono, monospace",
-                        fontSize: 9,
-                        color,
-                        letterSpacing: "0.1em",
-                        marginBottom: 4,
-                        opacity: 0.7,
-                      }}>
-                        JARVIS
-                      </div>
-                    )}
-                    <p style={{
-                      margin: 0,
-                      fontSize: 13,
-                      lineHeight: 1.5,
-                      color: m.role === "user" ? "var(--text-2)" : "var(--text-1)",
-                      fontFamily: "var(--font-sans, system-ui)",
-                    }}>
-                      {m.text}
-                    </p>
-                  </motion.div>
-                ))}
-
-                {/* Live transcript */}
-                {transcript && state === "processing" && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 0.6 }}
-                    style={{
-                      alignSelf: "flex-end",
-                      fontFamily: "JetBrains Mono, monospace",
-                      fontSize: 12,
-                      color: "var(--text-3)",
-                      fontStyle: "italic",
-                      padding: "4px 10px",
-                    }}
-                  >
-                    "{transcript}"
-                  </motion.div>
-                )}
-                <div ref={messagesEndRef} />
+              <div style={{
+                fontFamily: "JetBrains Mono, monospace", fontSize: 8,
+                color: color + "66", letterSpacing: "0.1em", marginTop: 1,
+              }}>
+                {state === "listening"  && "I'm listening…"}
+                {state === "processing" && "Analysing your query…"}
+                {state === "speaking"   && "Playing response…"}
+                {state === "idle"       && (wakeWordActive ? 'say "Hey JARVIS" or click mic' : "click mic or type below")}
+                {state === "offline"    && "Speech APIs not supported in this browser"}
               </div>
+            </div>
 
-              {/* Text input */}
-              <div
-                style={{
-                  borderTop: `1px solid ${color}15`,
-                  padding: "10px 12px",
-                  display: "flex",
-                  gap: 8,
-                  background: "rgba(0,0,0,0.3)",
-                }}
-              >
-                <input
-                  value={textInput}
-                  onChange={(e) => setTextInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      handleTextSend();
-                    }
-                  }}
-                  placeholder="Type to JARVIS…"
-                  style={{
-                    flex: 1,
-                    background: "transparent",
-                    border: `1px solid ${color}20`,
-                    borderRadius: 8,
-                    padding: "7px 12px",
-                    color: "var(--text-1)",
-                    fontFamily: "JetBrains Mono, monospace",
-                    fontSize: 12,
-                    outline: "none",
-                  }}
-                  onFocus={(e) => (e.target.style.borderColor = color + "60")}
-                  onBlur={(e) => (e.target.style.borderColor = color + "20")}
-                />
-                <button
-                  onClick={handleTextSend}
-                  style={{
-                    background: `${color}15`,
-                    border: `1px solid ${color}30`,
-                    borderRadius: 8,
-                    padding: "7px 12px",
-                    color,
-                    cursor: "pointer",
-                    fontSize: 12,
-                    fontFamily: "JetBrains Mono, monospace",
-                    transition: "all 0.15s",
-                  }}
-                  onMouseEnter={(e) => ((e.target as HTMLElement).style.background = `${color}25`)}
-                  onMouseLeave={(e) => ((e.target as HTMLElement).style.background = `${color}15`)}
-                >
-                  →
-                </button>
-              </div>
+            <div style={{ flex: 1 }} />
+            <WaveformCanvas active={state === "speaking"} />
+
+            <button
+              onClick={() => setPanelOpen(false)}
+              style={{
+                background: "none", border: "none", cursor: "pointer",
+                color: "var(--text-4)", fontSize: 18, lineHeight: 1,
+                padding: "0 4px", borderRadius: 4, marginLeft: 6,
+              }}
+              onMouseEnter={e => (e.currentTarget.style.color = "var(--text-2)")}
+              onMouseLeave={e => (e.currentTarget.style.color = "var(--text-4)")}
+            >
+              ×
+            </button>
+          </div>
+
+          {/* Live transcript */}
+          {transcript && (state === "listening" || state === "processing") && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              style={{
+                padding: "6px 14px",
+                background: `${color}05`,
+                borderBottom: `1px solid ${color}10`,
+                fontFamily: "JetBrains Mono, monospace",
+                fontSize: 11, color: "var(--text-3)", fontStyle: "italic",
+              }}
+            >
+              "{transcript}"
             </motion.div>
           )}
-        </AnimatePresence>
 
-        {/* ── Main orb button ──────────────────────────────────────────────── */}
-        <div
-          style={{
-            position: "relative",
-            width: 72,
-            height: 72,
-            pointerEvents: "auto",
-            cursor: "pointer",
-          }}
-        >
-          {/* Orbital dots — behind the orb */}
-          <OrbitalDots active={state === "processing"} />
-
-          {/* Ring 3 — outermost */}
-          <motion.div
-            animate={state === "listening" || state === "speaking"
-              ? { scale: [1.2, 1.5, 1.2], opacity: [0.15, 0.05, 0.15] }
-              : { scale: 1.2, opacity: 0.08 }
-            }
-            transition={{ duration: ringDuration[state], repeat: Infinity, ease: "easeInOut" }}
-            style={{
-              position: "absolute",
-              inset: -28,
-              borderRadius: "50%",
-              border: `1px solid ${color}`,
-              pointerEvents: "none",
-            }}
-          />
-
-          {/* Ring 2 */}
-          <motion.div
-            animate={ringVariants[state]}
-            transition={{
-              duration: ringDuration[state] * 0.8,
-              repeat: Infinity,
-              ease: "easeInOut",
-              delay: 0.15,
-            }}
-            style={{
-              position: "absolute",
-              inset: -14,
-              borderRadius: "50%",
-              border: `1px solid ${color}`,
-              pointerEvents: "none",
-            }}
-          />
-
-          {/* Ring 1 — closest */}
-          <motion.div
-            animate={ringVariants[state]}
-            transition={{
-              duration: ringDuration[state] * 0.6,
-              repeat: Infinity,
-              ease: "easeInOut",
-              delay: 0.08,
-            }}
-            style={{
-              position: "absolute",
-              inset: -5,
-              borderRadius: "50%",
-              border: `1.5px solid ${color}`,
-              pointerEvents: "none",
-            }}
-          />
-
-          {/* Core button */}
-          <motion.button
-            onClick={handleOrbClick}
-            onContextMenu={(e) => { e.preventDefault(); setExpanded((v) => !v); }}
-            whileHover={{ scale: 1.06 }}
-            whileTap={{ scale: 0.94 }}
-            animate={{
-              boxShadow: state === "idle"
-                ? [`0 0 20px ${color}40`, `0 0 35px ${color}60`, `0 0 20px ${color}40`]
-                : state === "listening"
-                ? [`0 0 30px ${color}80`, `0 0 50px ${color}aa`, `0 0 30px ${color}80`]
-                : state === "processing"
-                ? [`0 0 25px ${color}60`, `0 0 45px ${color}90`, `0 0 25px ${color}60`]
-                : state === "speaking"
-                ? [`0 0 28px ${color}70`, `0 0 48px ${color}99`, `0 0 28px ${color}70`]
-                : `0 0 10px ${color}20`,
-            }}
-            transition={{ duration: ringDuration[state], repeat: Infinity, ease: "easeInOut" }}
-            style={{
-              position: "absolute",
-              inset: 0,
-              borderRadius: "50%",
-              background: `radial-gradient(circle at 35% 35%, ${color}30, rgba(2,4,7,0.97) 70%)`,
-              border: `1.5px solid ${color}60`,
-              cursor: "pointer",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 2,
-              backdropFilter: "blur(10px)",
-            }}
-          >
-            {/* Arc reactor icon */}
-            <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-              {/* Outer ring */}
-              <circle cx="14" cy="14" r="12" stroke={color} strokeWidth="1" strokeOpacity="0.6" />
-              {/* Middle ring */}
-              <circle cx="14" cy="14" r="8" stroke={color} strokeWidth="1.5" strokeOpacity="0.8" />
-              {/* Triangle blades */}
-              {[0, 120, 240].map((deg, i) => {
-                const rad = (deg * Math.PI) / 180;
-                const x1 = 14 + 8 * Math.cos(rad);
-                const y1 = 14 + 8 * Math.sin(rad);
-                const x2 = 14 + 4 * Math.cos((rad + 0.7));
-                const y2 = 14 + 4 * Math.sin((rad + 0.7));
-                const x3 = 14 + 4 * Math.cos((rad - 0.7));
-                const y3 = 14 + 4 * Math.sin((rad - 0.7));
-                return (
-                  <motion.polygon
-                    key={i}
-                    points={`${x1},${y1} ${x2},${y2} ${x3},${y3}`}
-                    fill={color}
-                    fillOpacity={state === "idle" ? "0.5" : "0.8"}
-                    animate={{ rotate: state === "processing" ? 360 : 0 }}
-                    transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                    style={{ transformOrigin: "14px 14px" }}
-                  />
-                );
-              })}
-              {/* Core */}
-              <motion.circle
-                cx="14" cy="14" r="3"
-                fill={color}
-                animate={{ r: state === "listening" ? [3, 4, 3] : 3, opacity: state === "offline" ? 0.3 : 1 }}
-                transition={{ duration: 0.8, repeat: Infinity }}
-              />
-            </svg>
-
-            {/* Mic indicator */}
-            {isMicActive && (
-              <motion.div
-                animate={{ opacity: [1, 0.3, 1] }}
-                transition={{ duration: 0.6, repeat: Infinity }}
-                style={{
-                  width: 5, height: 5, borderRadius: "50%",
-                  background: "#00ff87",
-                  boxShadow: "0 0 6px #00ff87",
-                }}
-              />
+          {/* Messages */}
+          <div style={{
+            height: 300, overflowY: "auto",
+            padding: "12px 14px",
+            display: "flex", flexDirection: "column", gap: 10,
+          }}>
+            {messages.length === 0 && (
+              <div style={{
+                display: "flex", flexDirection: "column", alignItems: "center",
+                justifyContent: "center", height: "100%", gap: 12,
+                color: "var(--text-4)", textAlign: "center",
+              }}>
+                <motion.div
+                  animate={{ opacity: [0.4, 1, 0.4] }}
+                  transition={{ duration: 3, repeat: Infinity }}
+                  style={{
+                    width: 48, height: 48, borderRadius: "50%",
+                    background: `radial-gradient(circle at 35% 35%, ${color}20, transparent 70%)`,
+                    border: `1px solid ${color}30`,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                  }}
+                >
+                  <ArcReactorIcon color={color} size={24} />
+                </motion.div>
+                <div style={{ fontSize: 11, fontFamily: "JetBrains Mono, monospace", lineHeight: 2 }}>
+                  <span style={{ color }}>Click the mic</span> or say{" "}
+                  <span style={{ color }}>"Hey JARVIS"</span>
+                  <br />
+                  <span style={{ fontSize: 9, opacity: 0.5 }}>
+                    Research stocks · Latest results · Navigate the terminal
+                  </span>
+                </div>
+              </div>
             )}
-          </motion.button>
 
-          {/* State label */}
-          <div
-            style={{
-              position: "absolute",
-              top: "100%",
-              left: "50%",
-              transform: "translateX(-50%)",
-              marginTop: 6,
-              fontFamily: "JetBrains Mono, monospace",
-              fontSize: 8,
-              letterSpacing: "0.12em",
-              color,
-              opacity: 0.7,
-              whiteSpace: "nowrap",
-              pointerEvents: "none",
-              textAlign: "center",
-            }}
-          >
-            {STATE_LABEL[state]}
+            {messages.map((m, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, x: m.role === "user" ? 20 : -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.18 }}
+                style={{
+                  alignSelf: m.role === "user" ? "flex-end" : "flex-start",
+                  maxWidth: "88%",
+                  background: m.role === "user" ? "rgba(0,212,255,0.07)" : `${color}07`,
+                  border: `1px solid ${m.role === "user" ? "rgba(0,212,255,0.18)" : color + "1a"}`,
+                  borderRadius: m.role === "user" ? "12px 12px 2px 12px" : "12px 12px 12px 2px",
+                  padding: "8px 12px",
+                }}
+              >
+                {m.role === "jarvis" && (
+                  <div style={{
+                    fontFamily: "JetBrains Mono, monospace", fontSize: 8,
+                    color, letterSpacing: "0.12em", marginBottom: 4, opacity: 0.6,
+                  }}>
+                    JARVIS
+                  </div>
+                )}
+                <p style={{
+                  margin: 0, fontSize: 13, lineHeight: 1.55,
+                  color: m.role === "user" ? "var(--text-2)" : "var(--text-1)",
+                }}>
+                  {m.text}
+                </p>
+              </motion.div>
+            ))}
+
+            <div ref={messagesEndRef} />
           </div>
-        </div>
 
-        {/* Toggle expand button */}
-        <motion.button
-          onClick={() => {
-            setExpanded((v) => !v);
-            if (!isConnected) connect();
-          }}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          style={{
-            pointerEvents: "auto",
-            background: `${color}10`,
-            border: `1px solid ${color}25`,
-            borderRadius: 8,
-            padding: "4px 10px",
-            color,
-            cursor: "pointer",
-            fontFamily: "JetBrains Mono, monospace",
-            fontSize: 9,
-            letterSpacing: "0.1em",
-            backdropFilter: "blur(10px)",
-            transition: "all 0.2s",
-            marginTop: 20,
-          }}
-          onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = `${color}20`)}
-          onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = `${color}10`)}
-        >
-          {expanded ? "▼ CLOSE" : "▲ JARVIS"}
-        </motion.button>
-      </div>
-
-      {/* Global pulse keyframe */}
-      <style>{`
-        @keyframes pulse {
-          0%, 100% { transform: scale(1); opacity: 1; }
-          50%       { transform: scale(1.3); opacity: 0.6; }
-        }
-      `}</style>
-    </>
+          {/* Text input */}
+          <div style={{
+            borderTop: `1px solid ${color}10`,
+            padding: "10px 12px",
+            display: "flex", gap: 8,
+            background: "rgba(0,0,0,0.2)",
+          }}>
+            <input
+              value={localInput}
+              onChange={e => setLocalInput(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+              placeholder="Ask JARVIS anything…"
+              style={{
+                flex: 1, background: "transparent",
+                border: `1px solid ${color}18`, borderRadius: 8,
+                padding: "7px 12px", color: "var(--text-1)",
+                fontFamily: "JetBrains Mono, monospace", fontSize: 12, outline: "none",
+              }}
+              onFocus={e  => (e.target.style.borderColor = color + "50")}
+              onBlur={e   => (e.target.style.borderColor = color + "18")}
+            />
+            <motion.button
+              onClick={handleSend}
+              whileHover={{ scale: 1.06 }}
+              whileTap={{ scale: 0.93 }}
+              style={{
+                background: `${color}12`, border: `1px solid ${color}28`,
+                borderRadius: 8, padding: "7px 14px",
+                color, cursor: "pointer", fontSize: 15,
+              }}
+            >
+              ↑
+            </motion.button>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
+
+export function JarvisOrb() { return null; }
