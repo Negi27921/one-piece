@@ -7,8 +7,8 @@ import { useUIStore } from "@/store/ui";
 import { ChartDrawer } from "@/components/charts/ChartDrawer";
 import { GlobalSearch } from "@/components/ui/GlobalSearch";
 import { ChatBot } from "@/components/ui/ChatBot";
-import { FridayPanel } from "@/components/ui/FridayPanel";
-import { FridayProvider } from "@/contexts/FridayContext";
+// import { FridayPanel } from "@/components/ui/FridayPanel";
+// import { FridayProvider } from "@/contexts/FridayContext";
 import { useTheme } from "@/hooks/useTheme";
 
 const pageVariants = {
@@ -41,7 +41,6 @@ export function Layout() {
   }, [openSearch]);
 
   return (
-    <FridayProvider>
       <div
         className="flex h-screen overflow-hidden"
         style={{ background: "var(--bg)" }}
@@ -80,9 +79,8 @@ export function Layout() {
         />
         {showChatBot && <ChatBot />}
 
-        {/* FRIDAY panel drops from top-right — button is in Header */}
-        <FridayPanel />
+        {/* FRIDAY panel commented out */}
+        {/* <FridayPanel /> */}
       </div>
-    </FridayProvider>
   );
 }

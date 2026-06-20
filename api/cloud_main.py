@@ -15,7 +15,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from api._config import API_TITLE, API_VERSION, CORS_CONFIG, get_allowed_origins
 from api.middleware.security import SecurityHeadersMiddleware, require_internal_key
 from api.routers import (
-    chat, earnings, friday, hedge_fund, journal, market, portfolio, risk,
+    chat, earnings, hedge_fund, journal, market, portfolio, risk,
+    # friday,
     screener, settings, strategies, telegram_bot, trades, watchlist,
 )
 from api.routers import profile as profile_router
@@ -119,7 +120,7 @@ app.include_router(journal.router, prefix="/api/journal", tags=["Journal"])
 app.include_router(watchlist.router, prefix="/api/watchlists", tags=["Watchlist"])
 app.include_router(earnings.router,    prefix="/api/earnings",    tags=["Earnings"])
 app.include_router(hedge_fund.router,  prefix="/api/hedge-fund",  tags=["Hedge Fund"])
-app.include_router(friday.router,      prefix="/api/friday",       tags=["Friday"])
+# app.include_router(friday.router,      prefix="/api/friday",       tags=["Friday"])
 app.include_router(profile_router.router, prefix="/api", tags=["Profile"])
 app.include_router(_system, prefix="/api/system", tags=["System"])
 
