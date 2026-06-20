@@ -99,6 +99,32 @@ class TradeRecord(BaseModel):
     createdAt: str
 
 
+class BulkTradeRecord(BaseModel):
+    stockName: str
+    buyPrice: float
+    quantity: int
+    entryDate: str
+    capitalUsed: float
+    tradeType: str = "Swing"
+    status: str = "Closed"
+    sellPrice: float | None = None
+    exitDate: str | None = None
+    sellAmt: float | None = None
+    brokerPl: float | None = None
+    daysHeld: int | None = None
+    shortTermPl: float | None = None
+    longTermPl: float | None = None
+    speculationPl: float | None = None
+    turnover: float | None = None
+    isin: str | None = None
+    scripCode: str | None = None
+    scripName: str | None = None
+
+
+class BulkUploadRequest(BaseModel):
+    trades: list[BulkTradeRecord]
+
+
 class JournalChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=4000)
     history: list[dict] | None = None
@@ -164,6 +190,112 @@ def delete_trade(trade_id: str, _: None = Depends(require_internal_key)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     return {"ok": True, "id": trade_id}
+
+
+@router.post("/bulk-upload")
+def bulk_upload(body: BulkUploadRequest, _: None = Depends(require_internal_key)):
+    """Import trades from broker P&L export. Closes matching open trades or inserts new ones."""
+    import hashlib
+    from data.storage import supabase_db as sdb
+
+    existing = _all_trades()
+
+    # Build lookup for exact-match duplicates (same stock+dates+qty+price)
+    existing_keys: set[str] = set()
+    for t in existing:
+        ed = (t.get("exitDate") or "")[:10]
+        key = f"{t.get('stockName','')}__{t.get('entryDate','')[:10]}__{ed}__{t.get('quantity',0)}__{t.get('buyPrice',0)}"
+        existing_keys.add(hashlib.md5(key.encode()).hexdigest())
+
+    # Build lookup for open trades that can be closed by a realized trade
+    # Key: (stockName, entryDate[:10], quantity, buyPrice) → trade id
+    open_lookup: dict[str, dict] = {}
+    for t in existing:
+        if (t.get("status") or "").lower() != "open":
+            continue
+        okey = f"{t.get('stockName','')}__{t.get('entryDate','')[:10]}__{t.get('quantity',0)}__{t.get('buyPrice',0)}"
+        open_lookup[okey] = t
+
+    now = datetime.now(timezone.utc).isoformat()
+    inserted, skipped, closed = 0, 0, 0
+    result_trades: list[dict] = []
+
+    for t in body.trades:
+        ed = (t.exitDate or "")[:10]
+        dup_key = f"{t.stockName}__{t.entryDate[:10]}__{ed}__{t.quantity}__{t.buyPrice}"
+        dup_h = hashlib.md5(dup_key.encode()).hexdigest()
+        if dup_h in existing_keys:
+            skipped += 1
+            continue
+
+        # Check if this realized trade matches an existing open trade → close it
+        open_key = f"{t.stockName}__{t.entryDate[:10]}__{t.quantity}__{t.buyPrice}"
+        matched_open = open_lookup.pop(open_key, None)
+
+        if matched_open and t.status.lower() == "closed" and t.sellPrice:
+            row = {
+                "id":            matched_open["id"],
+                "status":        "Closed",
+                "sell_price":    t.sellPrice,
+                "exit_date":     t.exitDate,
+                "sell_amt":      t.sellAmt,
+                "broker_pl":     t.brokerPl,
+                "days_held":     t.daysHeld,
+                "short_term_pl": t.shortTermPl,
+                "long_term_pl":  t.longTermPl,
+                "speculation_pl": t.speculationPl,
+                "turnover":      t.turnover,
+                "isin":          t.isin or matched_open.get("isin"),
+                "scrip_code":    t.scripCode or matched_open.get("scripCode"),
+                "scrip_name":    t.scripName or matched_open.get("scripName"),
+                "updated_at":    now,
+            }
+            try:
+                res = sdb.upsert(_TABLE, row, on_conflict="id")
+                if res:
+                    result_trades.append(_row_to_dict(res[0]))
+                closed += 1
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Failed closing trade: {e}")
+        else:
+            trade_id = f"bulk_{int(datetime.now(timezone.utc).timestamp()*1000)}_{inserted}_{dup_h[:6]}"
+            row = {
+                "id":            trade_id,
+                "stock_name":    t.stockName,
+                "buy_price":     t.buyPrice,
+                "quantity":      t.quantity,
+                "entry_date":    t.entryDate,
+                "capital_used":  t.capitalUsed,
+                "trade_type":    t.tradeType,
+                "status":        t.status,
+                "sell_price":    t.sellPrice,
+                "exit_date":     t.exitDate,
+                "sell_amt":      t.sellAmt,
+                "broker_pl":     t.brokerPl,
+                "days_held":     t.daysHeld,
+                "short_term_pl": t.shortTermPl,
+                "long_term_pl":  t.longTermPl,
+                "speculation_pl": t.speculationPl,
+                "turnover":      t.turnover,
+                "isin":          t.isin,
+                "scrip_code":    t.scripCode,
+                "scrip_name":    t.scripName,
+                "created_at":    now,
+                "updated_at":    now,
+            }
+            try:
+                res = sdb.upsert(_TABLE, row, on_conflict="id")
+                if res:
+                    result_trades.append(_row_to_dict(res[0]))
+                else:
+                    result_trades.append(_row_to_dict(row))
+                inserted += 1
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Failed at trade {inserted}: {e}")
+
+        existing_keys.add(dup_h)
+
+    return {"inserted": inserted, "skipped": skipped, "closed": closed, "trades": result_trades}
 
 
 # ── Live price endpoint ────────────────────────────────────────────────────────

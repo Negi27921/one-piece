@@ -10,6 +10,7 @@ import { API_BASE, API_KEY } from "@/lib/constants";
 const TIMEOUT_MS         = 10_000;
 const TIMEOUT_CHAT_MS    = 35_000;
 const TIMEOUT_ANALYSE_MS = 50_000;
+const TIMEOUT_HEDGE_MS   = 120_000; // 13 concurrent LLM calls can take up to 2 min
 
 export class ApiError extends Error {
   constructor(
@@ -76,6 +77,8 @@ export const api = {
       path,
       { method: "POST", body: body != null ? JSON.stringify(body) : undefined },
       path.includes("/watchlists/analyse") ? TIMEOUT_ANALYSE_MS
+        : path.includes("/hedge-fund/analyze") ? TIMEOUT_HEDGE_MS
+        : path.includes("/bulk-upload") ? TIMEOUT_ANALYSE_MS
         : path.includes("/chat/") || path.includes("/scan/chunk") ? TIMEOUT_CHAT_MS
         : TIMEOUT_MS,
     ),

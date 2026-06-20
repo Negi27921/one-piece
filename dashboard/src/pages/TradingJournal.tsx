@@ -5,8 +5,9 @@ import {
   BookOpen, Plus, Trash2, TrendingUp, TrendingDown,
   DollarSign, Target, BarChart2, Brain, Send, Loader2,
   X, ChevronDown, ChevronUp, AlertCircle,
-  User, RefreshCw, Award,
+  User, RefreshCw, Award, Upload,
 } from "lucide-react";
+import * as XLSX from "xlsx";
 import { Header } from "@/components/layout/Header";
 import { StatCard } from "@/components/ui/StatCard";
 import { api } from "@/api/client";
@@ -129,6 +130,126 @@ function tradePnL(t: Trade): { pnl: number; pct: number } | null {
   const pnl = (t.sellPrice - t.buyPrice) * t.quantity;
   const pct = ((t.sellPrice - t.buyPrice) / t.buyPrice) * 100;
   return { pnl, pct };
+}
+
+// ── Upstox xlsx parser ───────────────────────────────────────────────────────
+
+function parseUpstoxXlsx(data: ArrayBuffer): Trade[] {
+  const wb = XLSX.read(data, { type: "array", cellDates: true });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rows: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, dateNF: "yyyy-mm-dd" });
+
+  // Find the header row containing 'Scrip Name'
+  let headerIdx = -1;
+  for (let i = 0; i < Math.min(rows.length, 30); i++) {
+    const row = rows[i];
+    if (row && Array.isArray(row) && row.some(c => String(c).trim().startsWith("Scrip Name"))) {
+      headerIdx = i;
+      break;
+    }
+  }
+  if (headerIdx === -1) return [];
+
+  const headers = (rows[headerIdx] as string[]).map(h => String(h ?? "").trim());
+  const col = (name: string) => headers.findIndex(h => h.startsWith(name));
+
+  // Detect format: realized P&L has "Buy Date", unrealized has "Open Qty"
+  const isUnrealized = col("Open Qty") >= 0;
+
+  const fmtDate = (v: unknown): string => {
+    if (!v) return "";
+    if (v instanceof Date) return v.toISOString().slice(0, 10);
+    const s = String(v);
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+    return s;
+  };
+  const num = (v: unknown): number => { const n = Number(v); return isNaN(n) ? 0 : n; };
+
+  const iISIN = col("ISIN"), iScripCode = col("Scrip Code"), iScripName = col("Scrip Name");
+  const iSymbol = col("Symbol");
+  const trades: Trade[] = [];
+
+  if (isUnrealized) {
+    // Unrealized P&L: open positions
+    const iQty = col("Open Qty"), iRate = col("Avg Rate"), iAmt = col("Open Amt");
+    for (let i = headerIdx + 1; i < rows.length; i++) {
+      const row = rows[i] as unknown[];
+      if (!row) continue;
+      const symbol = iSymbol >= 0 ? String(row[iSymbol] ?? "").trim() : "";
+      const isin = iISIN >= 0 ? String(row[iISIN] ?? "").trim() : "";
+      if (!symbol && !isin) continue;
+      if (symbol === "Symbol" || symbol.startsWith("Total") || symbol.startsWith("Grand") || symbol.startsWith("From ")) continue;
+
+      const buyPrice = num(row[iRate]);
+      const qty = Math.round(num(row[iQty]));
+      if (!buyPrice || !qty) continue;
+
+      const stockName = symbol || isin;
+      trades.push({
+        id: `bulk_${Date.now()}_${i}_${stockName}`,
+        stockName,
+        buyPrice,
+        quantity: qty,
+        entryDate: new Date().toISOString().slice(0, 10),
+        capitalUsed: num(row[iAmt]) || buyPrice * qty,
+        tradeType: "Swing",
+        status: "Open",
+        isin: iISIN >= 0 ? String(row[iISIN] ?? "") || undefined : undefined,
+        scripCode: iScripCode >= 0 ? String(row[iScripCode] ?? "") || undefined : undefined,
+        scripName: iScripName >= 0 ? String(row[iScripName] ?? "") || undefined : undefined,
+        createdAt: new Date().toISOString(),
+      });
+    }
+  } else {
+    // Realized P&L: closed trades
+    const iQty = col("Qty"), iBuyDate = col("Buy Date"), iBuyRate = col("Buy Rate");
+    const iBuyAmt = col("Buy Amt"), iSellDate = col("Sell Date"), iSellRate = col("Sell Rate");
+    const iSellAmt = col("Sell Amt"), iDays = col("Days"), iTotalPL = col("Total PL");
+    const iShortTerm = col("Short Term"), iLongTerm = col("Long Term");
+    const iSpeculation = col("Speculation"), iTurnOver = col("Turn Over");
+
+    for (let i = headerIdx + 1; i < rows.length; i++) {
+      const row = rows[i] as unknown[];
+      if (!row || (iSymbol >= 0 && !row[iSymbol])) continue;
+      const symbol = iSymbol >= 0 ? String(row[iSymbol]).trim() : "";
+      if (!symbol || symbol === "Symbol" || symbol.startsWith("Total") || symbol.startsWith("Grand")) continue;
+
+      const buyPrice = num(row[iBuyRate]);
+      const qty = Math.round(num(row[iQty]));
+      const entryDate = fmtDate(row[iBuyDate]);
+      const exitDate = fmtDate(row[iSellDate]);
+      const sellPrice = num(row[iSellRate]);
+      const days = Math.round(num(row[iDays]));
+
+      if (!buyPrice || !qty || !entryDate) continue;
+
+      trades.push({
+        id: `bulk_${Date.now()}_${i}_${symbol}`,
+        stockName: symbol,
+        buyPrice,
+        quantity: qty,
+        entryDate,
+        capitalUsed: num(row[iBuyAmt]) || buyPrice * qty,
+        tradeType: days === 0 ? "Intraday" : "Swing",
+        status: "Closed",
+        sellPrice: sellPrice || undefined,
+        exitDate: exitDate || undefined,
+        sellAmt: num(row[iSellAmt]) || undefined,
+        brokerPl: num(row[iTotalPL]) || undefined,
+        daysHeld: days || undefined,
+        shortTermPl: num(row[iShortTerm]) || undefined,
+        longTermPl: iLongTerm >= 0 ? num(row[iLongTerm]) || undefined : undefined,
+        speculationPl: num(row[iSpeculation]) || undefined,
+        turnover: num(row[iTurnOver]) || undefined,
+        isin: iISIN >= 0 ? String(row[iISIN] ?? "") || undefined : undefined,
+        scripCode: iScripCode >= 0 ? String(row[iScripCode] ?? "") || undefined : undefined,
+        scripName: iScripName >= 0 ? String(row[iScripName] ?? "") || undefined : undefined,
+        createdAt: new Date().toISOString(),
+      });
+    }
+  }
+
+  return trades;
 }
 
 // ── Markdown renderer ─────────────────────────────────────────────────────────
@@ -961,6 +1082,9 @@ export function TradingJournalPage() {
   const [statusFilter, setStatusFilter] = useState<"all" | "open" | "closed">("all");
   const [syncStatus, setSyncStatus]     = useState<"idle" | "syncing" | "synced" | "error">("idle");
   const [livePrices, setLivePrices]     = useState<Record<string, number | null>>({});
+  const [uploading, setUploading]       = useState(false);
+  const [uploadResult, setUploadResult] = useState<{ inserted: number; skipped: number; closed: number } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef  = useRef<HTMLInputElement>(null);
 
@@ -1031,6 +1155,35 @@ export function TradingJournalPage() {
     api.delete<{ ok: boolean }>(`/journal/trades/${encodeURIComponent(id)}`)
       .then(() => setSyncStatus("synced"))
       .catch(() => setSyncStatus("error"));
+  }, [trades, persistAndSet]);
+
+  const onBulkUpload = useCallback(async (file: File) => {
+    setUploading(true);
+    setUploadResult(null);
+    try {
+      const data = await file.arrayBuffer();
+      const parsed = parseUpstoxXlsx(data);
+      if (!parsed.length) {
+        setUploadResult({ inserted: 0, skipped: 0, closed: 0 });
+        setUploading(false);
+        return;
+      }
+      // Send all parsed trades to backend — it handles dedup + closing open trades
+      setSyncStatus("syncing");
+      const res = await api.post<{ inserted: number; skipped: number; closed: number; trades: Trade[] }>("/journal/bulk-upload", { trades: parsed });
+      // Merge result trades into local state (replace closed ones, add new ones)
+      const resultIds = new Set(res.trades.map(t => t.id));
+      const kept = trades.filter(t => !resultIds.has(t.id));
+      const updated = [...res.trades, ...kept]
+        .sort((a, b) => new Date(b.entryDate).getTime() - new Date(a.entryDate).getTime());
+      persistAndSet(updated);
+      setSyncStatus("synced");
+      setUploadResult({ inserted: res.inserted, skipped: res.skipped, closed: res.closed ?? 0 });
+    } catch {
+      setSyncStatus("error");
+      setUploadResult({ inserted: 0, skipped: 0, closed: 0 });
+    }
+    setUploading(false);
   }, [trades, persistAndSet]);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
@@ -1249,14 +1402,45 @@ export function TradingJournalPage() {
           </div>
 
           {activeTab === "log" && (
-            <button onClick={() => { setEditingTrade(null); setModalOpen(true); }} style={{
-              display: "flex", alignItems: "center", gap: 7, padding: "8px 18px",
-              borderRadius: 9999, border: "none", background: "var(--accent)", color: "#fff",
-              fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-body)",
-              boxShadow: "0 4px 14px rgba(106,98,86,0.3)",
-            }}>
-              <Plus size={13} /> Add Trade
-            </button>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              {uploadResult && (
+                <span style={{ fontSize: 11, color: (uploadResult.inserted > 0 || uploadResult.closed > 0) ? "var(--green)" : "var(--text-3)", fontFamily: "var(--font-body)" }}>
+                  {uploadResult.inserted > 0 ? `+${uploadResult.inserted} imported` : ""}{uploadResult.closed > 0 ? `${uploadResult.inserted > 0 ? ", " : ""}${uploadResult.closed} closed` : ""}{uploadResult.inserted === 0 && uploadResult.closed === 0 ? "No new trades" : ""}{uploadResult.skipped > 0 ? ` (${uploadResult.skipped} skipped)` : ""}
+                </span>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx,.xls"
+                style={{ display: "none" }}
+                onChange={e => {
+                  const f = e.target.files?.[0];
+                  if (f) onBulkUpload(f);
+                  e.target.value = "";
+                }}
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                style={{
+                  display: "flex", alignItems: "center", gap: 6, padding: "8px 14px",
+                  borderRadius: 9999, border: "1px solid var(--border)", background: "var(--surface-2)",
+                  color: "var(--text-2)", fontSize: 12, fontWeight: 600, cursor: uploading ? "wait" : "pointer",
+                  fontFamily: "var(--font-body)", opacity: uploading ? 0.6 : 1,
+                }}
+              >
+                {uploading ? <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} /> : <Upload size={13} />}
+                {uploading ? "Importing…" : "Bulk Upload"}
+              </button>
+              <button onClick={() => { setEditingTrade(null); setModalOpen(true); }} style={{
+                display: "flex", alignItems: "center", gap: 7, padding: "8px 18px",
+                borderRadius: 9999, border: "none", background: "var(--accent)", color: "#fff",
+                fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-body)",
+                boxShadow: "0 4px 14px rgba(106,98,86,0.3)",
+              }}>
+                <Plus size={13} /> Add Trade
+              </button>
+            </div>
           )}
           {activeTab === "coach" && (
             <button onClick={() => { setMessages([]); }} style={{
