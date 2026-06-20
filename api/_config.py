@@ -18,6 +18,7 @@ _DEFAULT_ORIGINS = [
     "https://luffy-labs.vercel.app",
     "https://onepiece-labs.vercel.app",
     "http://localhost:5173",
+    "http://localhost:5174",
     "http://localhost:3000",
 ]
 
