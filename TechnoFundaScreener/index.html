@@ -1,0 +1,1105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TechnoFunda Screener | Hedge Fund Council</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg-primary: #0a0a0f;
+  --bg-secondary: #12121a;
+  --bg-card: #16161f;
+  --bg-card-hover: #1c1c28;
+  --bg-elevated: #1e1e2a;
+  --border: rgba(255,255,255,0.06);
+  --border-active: rgba(255,255,255,0.12);
+  --text-primary: #f0f0f5;
+  --text-secondary: #8888a0;
+  --text-muted: #555570;
+  --accent: #6c5ce7;
+  --accent-light: #a29bfe;
+  --green: #00d68f;
+  --green-bg: rgba(0,214,143,0.08);
+  --green-border: rgba(0,214,143,0.2);
+  --red: #ff6b6b;
+  --red-bg: rgba(255,107,107,0.08);
+  --red-border: rgba(255,107,107,0.2);
+  --amber: #feca57;
+  --amber-bg: rgba(254,202,87,0.08);
+  --amber-border: rgba(254,202,87,0.2);
+  --blue: #54a0ff;
+  --blue-bg: rgba(84,160,255,0.08);
+  --blue-border: rgba(84,160,255,0.2);
+  --cyan: #00cec9;
+  --pink: #fd79a8;
+  --gold: #f9ca24;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-xs: 6px;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg-primary); color: var(--text-primary); min-height: 100vh; overflow-x: hidden; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+
+/* Noise overlay */
+body::before { content: ''; position: fixed; inset: 0; opacity: 0.015; z-index: 0; pointer-events: none; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence baseFrequency='0.65' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E"); }
+
+/* Header */
+.header { position: sticky; top: 0; z-index: 100; background: rgba(10,10,15,0.85); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); padding: 0 2rem; }
+.header-inner { max-width: 1440px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; height: 64px; }
+.logo { display: flex; align-items: center; gap: 12px; }
+.logo-icon { width: 36px; height: 36px; background: linear-gradient(135deg, var(--accent), var(--cyan)); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 800; color: white; }
+.logo-text { font-size: 18px; font-weight: 700; letter-spacing: -0.5px; }
+.logo-text span { color: var(--accent-light); }
+.header-badge { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; color: var(--cyan); background: rgba(0,206,201,0.1); border: 1px solid rgba(0,206,201,0.2); padding: 4px 10px; border-radius: 20px; }
+.header-right { display: flex; align-items: center; gap: 16px; }
+.header-status { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); }
+.header-status .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+/* Nav tabs */
+.nav-tabs { display: flex; gap: 4px; background: var(--bg-secondary); border-radius: var(--radius); padding: 4px; margin: 1.5rem auto; max-width: 600px; }
+.nav-tab { flex: 1; padding: 10px 16px; border: none; background: transparent; color: var(--text-secondary); font-family: inherit; font-size: 13px; font-weight: 500; border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 6px; }
+.nav-tab:hover { color: var(--text-primary); background: rgba(255,255,255,0.03); }
+.nav-tab.active { background: var(--accent); color: white; }
+
+/* Main */
+.main { max-width: 1440px; margin: 0 auto; padding: 1rem 2rem 4rem; position: relative; z-index: 1; }
+
+/* Screener Section */
+.screener-grid { display: grid; grid-template-columns: 320px 1fr; gap: 1.5rem; }
+.filter-panel { position: sticky; top: 80px; height: calc(100vh - 100px); overflow-y: auto; }
+.filter-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 12px; }
+.filter-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-secondary); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+.filter-title i { font-size: 16px; color: var(--accent-light); }
+
+/* Range slider */
+.range-group { margin-bottom: 16px; }
+.range-label { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.range-label span { font-size: 13px; color: var(--text-secondary); }
+.range-value { font-size: 13px; font-weight: 600; color: var(--accent-light); min-width: 50px; text-align: right; }
+input[type="range"] { width: 100%; height: 4px; -webkit-appearance: none; background: var(--border-active); border-radius: 2px; outline: none; }
+input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--accent); cursor: pointer; border: 2px solid var(--bg-card); }
+
+/* Checkbox filters */
+.check-group { display: flex; flex-direction: column; gap: 8px; }
+.check-item { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.check-item input { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+.check-item label { font-size: 13px; color: var(--text-secondary); cursor: pointer; }
+.check-item:hover label { color: var(--text-primary); }
+
+/* Toggle */
+.toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; }
+.toggle-label { font-size: 13px; color: var(--text-secondary); }
+.toggle { position: relative; width: 40px; height: 22px; }
+.toggle input { opacity: 0; width: 0; height: 0; }
+.toggle-slider { position: absolute; inset: 0; background: var(--bg-elevated); border-radius: 11px; cursor: pointer; transition: 0.3s; border: 1px solid var(--border-active); }
+.toggle-slider::before { content: ''; position: absolute; left: 3px; top: 3px; width: 14px; height: 14px; border-radius: 50%; background: var(--text-muted); transition: 0.3s; }
+.toggle input:checked + .toggle-slider { background: var(--accent); border-color: var(--accent); }
+.toggle input:checked + .toggle-slider::before { transform: translateX(18px); background: white; }
+
+/* Results area */
+.results-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.results-count { font-size: 14px; color: var(--text-secondary); }
+.results-count strong { color: var(--text-primary); font-weight: 600; }
+.sort-select { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 12px; color: var(--text-primary); font-family: inherit; font-size: 13px; outline: none; cursor: pointer; }
+.sort-select option { background: var(--bg-card); }
+
+/* Stock Cards */
+.stock-list { display: flex; flex-direction: column; gap: 12px; }
+.stock-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 24px; cursor: pointer; transition: all 0.2s; position: relative; overflow: hidden; }
+.stock-card:hover { border-color: var(--border-active); background: var(--bg-card-hover); transform: translateY(-1px); }
+.stock-card.near-ath { border-left: 3px solid var(--gold); }
+.stock-card.breakout { border-left: 3px solid var(--green); }
+.stock-card-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 14px; }
+.stock-info { flex: 1; }
+.stock-name { font-size: 16px; font-weight: 600; margin-bottom: 2px; }
+.stock-sector { font-size: 12px; color: var(--text-muted); }
+.stock-price-block { text-align: right; }
+.stock-price { font-size: 20px; font-weight: 700; }
+.stock-change { font-size: 12px; font-weight: 500; margin-top: 2px; }
+.stock-change.up { color: var(--green); }
+.stock-change.down { color: var(--red); }
+
+.stock-metrics { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 14px; }
+.metric { background: var(--bg-elevated); border-radius: var(--radius-xs); padding: 10px 12px; }
+.metric-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-muted); margin-bottom: 4px; }
+.metric-value { font-size: 14px; font-weight: 600; }
+
+.stock-signals { display: flex; gap: 6px; flex-wrap: wrap; }
+.signal-badge { font-size: 11px; font-weight: 500; padding: 4px 10px; border-radius: 20px; display: flex; align-items: center; gap: 4px; }
+.signal-badge i { font-size: 12px; }
+.signal-green { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
+.signal-red { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-border); }
+.signal-amber { background: var(--amber-bg); color: var(--amber); border: 1px solid var(--amber-border); }
+.signal-blue { background: var(--blue-bg); color: var(--blue); border: 1px solid var(--blue-border); }
+
+/* Conviction meter */
+.conviction-bar { height: 4px; background: var(--bg-elevated); border-radius: 2px; margin-top: 14px; overflow: hidden; }
+.conviction-fill { height: 100%; border-radius: 2px; transition: width 0.5s; }
+.conviction-label { display: flex; justify-content: space-between; margin-top: 6px; }
+.conviction-label span { font-size: 11px; color: var(--text-muted); }
+.conviction-label strong { font-size: 11px; font-weight: 600; }
+
+/* Council Section */
+.council-hero { text-align: center; padding: 3rem 0 2rem; }
+.council-hero h2 { font-size: 28px; font-weight: 800; letter-spacing: -1px; margin-bottom: 8px; }
+.council-hero h2 span { background: linear-gradient(135deg, var(--gold), var(--amber)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.council-hero p { font-size: 14px; color: var(--text-secondary); max-width: 500px; margin: 0 auto; }
+
+.council-input-area { max-width: 700px; margin: 2rem auto; }
+.council-search { display: flex; gap: 8px; }
+.council-search input { flex: 1; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 18px; color: var(--text-primary); font-family: inherit; font-size: 15px; outline: none; transition: border-color 0.2s; }
+.council-search input:focus { border-color: var(--accent); }
+.council-search input::placeholder { color: var(--text-muted); }
+.council-btn { background: linear-gradient(135deg, var(--accent), #8b5cf6); border: none; border-radius: var(--radius); padding: 14px 28px; color: white; font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+.council-btn:hover { transform: translateY(-1px); filter: brightness(1.1); }
+.council-btn:active { transform: scale(0.98); }
+
+/* Council Report */
+.council-report { max-width: 900px; margin: 2rem auto; display: none; }
+.council-report.visible { display: block; }
+
+.report-header { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius) var(--radius) 0 0; padding: 24px; display: flex; align-items: center; justify-content: space-between; }
+.report-stock-info h3 { font-size: 22px; font-weight: 700; }
+.report-stock-info p { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
+.report-verdict { text-align: center; }
+.verdict-score { font-size: 48px; font-weight: 900; }
+.verdict-label { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
+
+.council-members { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0; border: 1px solid var(--border); border-top: none; border-radius: 0 0 var(--radius) var(--radius); overflow: hidden; }
+.council-member { background: var(--bg-card); padding: 20px 16px; text-align: center; border-right: 1px solid var(--border); transition: background 0.2s; }
+.council-member:last-child { border-right: none; }
+.council-member:hover { background: var(--bg-card-hover); }
+.member-avatar { width: 48px; height: 48px; border-radius: 50%; margin: 0 auto 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; color: white; }
+.member-name { font-size: 12px; font-weight: 600; margin-bottom: 2px; }
+.member-role { font-size: 10px; color: var(--text-muted); margin-bottom: 10px; }
+.member-vote { font-size: 22px; font-weight: 800; margin-bottom: 4px; }
+.member-action { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; padding: 3px 8px; border-radius: 20px; }
+
+/* Rating bars */
+.rating-section { margin-top: 1.5rem; }
+.rating-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 24px; margin-bottom: 12px; }
+.rating-card-title { font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; text-transform: uppercase; letter-spacing: 1px; }
+.rating-card-title i { font-size: 16px; color: var(--accent-light); }
+.rating-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.rating-row:last-child { margin-bottom: 0; }
+.rating-label { font-size: 13px; color: var(--text-secondary); width: 180px; flex-shrink: 0; }
+.rating-bar-track { flex: 1; height: 8px; background: var(--bg-elevated); border-radius: 4px; overflow: hidden; }
+.rating-bar-fill { height: 100%; border-radius: 4px; transition: width 1s ease; }
+.rating-score { font-size: 13px; font-weight: 600; width: 40px; text-align: right; }
+
+/* Near ATH indicator */
+.ath-distance { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 20px; }
+.ath-near { background: rgba(249,202,36,0.1); color: var(--gold); border: 1px solid rgba(249,202,36,0.2); }
+.ath-at { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
+.ath-far { background: rgba(255,255,255,0.05); color: var(--text-muted); border: 1px solid var(--border); }
+
+/* Volume bar */
+.vol-bar { display: flex; align-items: center; gap: 8px; }
+.vol-bar-track { width: 80px; height: 6px; background: var(--bg-elevated); border-radius: 3px; overflow: hidden; }
+.vol-bar-fill { height: 100%; border-radius: 3px; }
+
+/* Tabs content */
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .screener-grid { grid-template-columns: 1fr; }
+  .filter-panel { position: static; height: auto; }
+  .stock-metrics { grid-template-columns: repeat(3, 1fr); }
+  .council-members { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 640px) {
+  .main { padding: 1rem; }
+  .stock-metrics { grid-template-columns: repeat(2, 1fr); }
+  .council-members { grid-template-columns: 1fr; }
+}
+
+/* Loading shimmer */
+@keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+.loading { background: linear-gradient(90deg, var(--bg-card) 25%, var(--bg-elevated) 50%, var(--bg-card) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: var(--radius); }
+
+/* Score colors */
+.score-high { color: var(--green); }
+.score-mid { color: var(--amber); }
+.score-low { color: var(--red); }
+.bg-high { background: var(--green); }
+.bg-mid { background: var(--amber); }
+.bg-low { background: var(--red); }
+
+/* Typewriter for council */
+@keyframes typewriter { from { width: 0; } to { width: 100%; } }
+.typing { overflow: hidden; white-space: nowrap; animation: typewriter 0.8s steps(40) forwards; }
+
+/* ATH Spark line */
+.spark-container { width: 100px; height: 30px; }
+
+/* Run screener button */
+.run-btn { width: 100%; background: linear-gradient(135deg, var(--accent), #8b5cf6); border: none; border-radius: var(--radius-sm); padding: 12px; color: white; font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 8px; }
+.run-btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
+.run-btn:active { transform: scale(0.98); }
+
+/* Quick stats */
+.quick-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 1.5rem; }
+.quick-stat { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; text-align: center; }
+.quick-stat-value { font-size: 24px; font-weight: 800; }
+.quick-stat-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
+
+/* Invalidation level */
+.invalidation-tag { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 500; color: var(--red); background: var(--red-bg); border: 1px solid var(--red-border); padding: 3px 10px; border-radius: 20px; }
+</style>
+</head>
+<body>
+
+<header class="header">
+<div class="header-inner">
+  <div class="logo">
+    <div class="logo-icon">TF</div>
+    <div class="logo-text">TechnoFunda<span>Screener</span></div>
+    <span class="header-badge">Hedge Fund Council</span>
+  </div>
+  <div class="header-right">
+    <div class="header-status"><span class="dot"></span> Live market data</div>
+  </div>
+</div>
+</header>
+
+<div class="main">
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="switchTab('screener')"><i class="ti ti-filter" style="font-size:16px"></i> Screener</button>
+    <button class="nav-tab" onclick="switchTab('council')"><i class="ti ti-crown" style="font-size:16px"></i> Hedge Fund Council</button>
+    <button class="nav-tab" onclick="switchTab('watchlist')"><i class="ti ti-star" style="font-size:16px"></i> Watchlist</button>
+  </div>
+
+  <!-- SCREENER TAB -->
+  <div class="tab-content active" id="tab-screener">
+    <div class="quick-stats">
+      <div class="quick-stat">
+        <div class="quick-stat-value score-high" id="qs-breakout">0</div>
+        <div class="quick-stat-label">ATH breakouts</div>
+      </div>
+      <div class="quick-stat">
+        <div class="quick-stat-value" style="color:var(--gold)" id="qs-near">0</div>
+        <div class="quick-stat-label">Near ATH</div>
+      </div>
+      <div class="quick-stat">
+        <div class="quick-stat-value" style="color:var(--cyan)" id="qs-rs">0</div>
+        <div class="quick-stat-label">RS positive</div>
+      </div>
+      <div class="quick-stat">
+        <div class="quick-stat-value" style="color:var(--accent-light)" id="qs-total">0</div>
+        <div class="quick-stat-label">Total matches</div>
+      </div>
+    </div>
+
+    <div class="screener-grid">
+      <!-- Filters -->
+      <div class="filter-panel">
+        <div class="filter-card">
+          <div class="filter-title"><i class="ti ti-chart-candle"></i> Technical filters</div>
+
+          <div class="toggle-row">
+            <span class="toggle-label">ATH breakout confirmed</span>
+            <label class="toggle"><input type="checkbox" id="f-breakout" checked onchange="runScreener()"><span class="toggle-slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <span class="toggle-label">Near ATH (within 5%)</span>
+            <label class="toggle"><input type="checkbox" id="f-near-ath" checked onchange="runScreener()"><span class="toggle-slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <span class="toggle-label">RS above zero (outperforming)</span>
+            <label class="toggle"><input type="checkbox" id="f-rs-positive" checked onchange="runScreener()"><span class="toggle-slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <span class="toggle-label">High volume breakout (>2x avg)</span>
+            <label class="toggle"><input type="checkbox" id="f-high-vol" onchange="runScreener()"><span class="toggle-slider"></span></label>
+          </div>
+
+          <div class="range-group" style="margin-top:16px">
+            <div class="range-label">
+              <span>Min consolidation (months)</span>
+              <span class="range-value" id="rv-consol">6</span>
+            </div>
+            <input type="range" min="1" max="60" value="6" step="1" id="f-consol" oninput="document.getElementById('rv-consol').textContent=this.value; runScreener()">
+          </div>
+
+          <div class="range-group">
+            <div class="range-label">
+              <span>Volume ratio (vs 50D avg)</span>
+              <span class="range-value" id="rv-volratio">1.0x</span>
+            </div>
+            <input type="range" min="0.5" max="10" value="1" step="0.1" id="f-volratio" oninput="document.getElementById('rv-volratio').textContent=parseFloat(this.value).toFixed(1)+'x'; runScreener()">
+          </div>
+        </div>
+
+        <div class="filter-card">
+          <div class="filter-title"><i class="ti ti-building-bank"></i> Fundamental filters</div>
+
+          <div class="range-group">
+            <div class="range-label">
+              <span>Min 5Y sales CAGR (%)</span>
+              <span class="range-value" id="rv-salescagr">10%</span>
+            </div>
+            <input type="range" min="0" max="60" value="10" step="1" id="f-salescagr" oninput="document.getElementById('rv-salescagr').textContent=this.value+'%'; runScreener()">
+          </div>
+
+          <div class="range-group">
+            <div class="range-label">
+              <span>Min ROCE (%)</span>
+              <span class="range-value" id="rv-roce">10%</span>
+            </div>
+            <input type="range" min="0" max="50" value="10" step="1" id="f-roce" oninput="document.getElementById('rv-roce').textContent=this.value+'%'; runScreener()">
+          </div>
+
+          <div class="range-group">
+            <div class="range-label">
+              <span>Max debt/equity</span>
+              <span class="range-value" id="rv-de">1.5x</span>
+            </div>
+            <input type="range" min="0" max="3" value="1.5" step="0.1" id="f-de" oninput="document.getElementById('rv-de').textContent=parseFloat(this.value).toFixed(1)+'x'; runScreener()">
+          </div>
+
+          <div class="range-group">
+            <div class="range-label">
+              <span>Min CFO/OP ratio (%)</span>
+              <span class="range-value" id="rv-cfo">30%</span>
+            </div>
+            <input type="range" min="0" max="100" value="30" step="5" id="f-cfo" oninput="document.getElementById('rv-cfo').textContent=this.value+'%'; runScreener()">
+          </div>
+
+          <div class="toggle-row">
+            <span class="toggle-label">Order book > 1x revenue</span>
+            <label class="toggle"><input type="checkbox" id="f-orderbook" onchange="runScreener()"><span class="toggle-slider"></span></label>
+          </div>
+        </div>
+
+        <div class="filter-card">
+          <div class="filter-title"><i class="ti ti-alert-triangle"></i> Risk filters</div>
+          <div class="toggle-row">
+            <span class="toggle-label">Exclude high debt (D/E > 1.5)</span>
+            <label class="toggle"><input type="checkbox" id="f-excl-debt" onchange="runScreener()"><span class="toggle-slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <span class="toggle-label">Exclude weak cash flow</span>
+            <label class="toggle"><input type="checkbox" id="f-excl-cashflow" onchange="runScreener()"><span class="toggle-slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <span class="toggle-label">Promoter holding > 50%</span>
+            <label class="toggle"><input type="checkbox" id="f-promoter" onchange="runScreener()"><span class="toggle-slider"></span></label>
+          </div>
+        </div>
+
+        <button class="run-btn" onclick="runScreener()">
+          <i class="ti ti-bolt" style="font-size:18px"></i> Run screener
+        </button>
+      </div>
+
+      <!-- Results -->
+      <div>
+        <div class="results-header">
+          <div class="results-count">Showing <strong id="result-count">0</strong> stocks</div>
+          <select class="sort-select" id="sort-by" onchange="runScreener()">
+            <option value="conviction">Sort: Conviction score</option>
+            <option value="rs">Sort: Relative strength</option>
+            <option value="volume">Sort: Volume ratio</option>
+            <option value="ath-distance">Sort: Distance from ATH</option>
+            <option value="sales-growth">Sort: Sales growth</option>
+          </select>
+        </div>
+        <div class="stock-list" id="stock-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- COUNCIL TAB -->
+  <div class="tab-content" id="tab-council">
+    <div class="council-hero">
+      <h2>The <span>Hedge Fund Council</span></h2>
+      <p>Five AI-powered analysts evaluate every stock across technical momentum, fundamentals, cash flow, risk, and conviction — delivering a unified rating</p>
+    </div>
+
+    <div class="council-input-area">
+      <div class="council-search">
+        <input type="text" id="council-input" placeholder="Enter stock name or symbol (e.g. Motherson, AEGIS, MINDA)" onkeydown="if(event.key==='Enter') runCouncil()">
+        <button class="council-btn" onclick="runCouncil()"><i class="ti ti-crown" style="font-size:16px"></i> Convene council</button>
+      </div>
+    </div>
+
+    <div class="council-report" id="council-report"></div>
+  </div>
+
+  <!-- WATCHLIST TAB -->
+  <div class="tab-content" id="tab-watchlist">
+    <div class="council-hero">
+      <h2>Your <span>Watchlist</span></h2>
+      <p>Stocks you've starred from the screener. Auto-monitored for breakout and RS signals.</p>
+    </div>
+    <div id="watchlist-area" style="max-width:900px; margin:0 auto;"></div>
+  </div>
+</div>
+
+<script>
+// ──────────────────────────────────────────
+// STOCK DATABASE (video stocks + extended universe)
+// ──────────────────────────────────────────
+const STOCKS = [
+  {
+    name: "Samvardhana Motherson International", symbol: "MOTHERSON", sector: "Auto ancillary",
+    price: 148.54, change: 3.58, ath: 149.2, ath52w: 149.2, low52w: 98.5,
+    consolidationMonths: 9, breakout: true, nearAth: true, athDistance: 0.4,
+    rsAboveZero: true, rsValue: 1.28,
+    volumeRatio: 2.8, avgVolume: 12500000, todayVolume: 35000000,
+    salesCagr5y: 18.7, profitCagr5y: 28.5, roce: 16, de: 0.47, cfoRatio: 52,
+    opm: 8.5, orderBookRatio: 7.0, promoterHolding: 62.8,
+    invalidation: 134, marketCap: 102000,
+    growth: "FY30 target: ₹10L Cr revenue (36% CAGR), ROCE target 40%",
+    risk: "Europe/NA demand weakness, copper price volatility, borrowings ₹10,250 Cr",
+    business: "India's largest auto ancillary — wiring harness, mirrors, bumpers, polymer modules. 47 acquisitions since 2002. Present in 44 countries.",
+    cashCycle: 45, interestCoverage: 4.72, fixedAssetTurnover: 3.0
+  },
+  {
+    name: "Aegis Logistics", symbol: "AEGIS", sector: "Energy logistics",
+    price: 892, change: 2.1, ath: 910, ath52w: 910, low52w: 580,
+    consolidationMonths: 11, breakout: true, nearAth: true, athDistance: 2.0,
+    rsAboveZero: true, rsValue: 1.15,
+    volumeRatio: 2.2, avgVolume: 800000, todayVolume: 1760000,
+    salesCagr5y: 12.5, profitCagr5y: 22.8, roce: 18.5, de: 0.35, cfoRatio: 58,
+    opm: 17, orderBookRatio: 1.2, promoterHolding: 58.6,
+    invalidation: 800, marketCap: 31500,
+    growth: "₹47,000 Cr capex pipeline by 2030. ₹7000/ton margin guidance. 7 major port terminals.",
+    risk: "Execution risk on ₹47K Cr capex, crude-linked LPG prices, asset utilization post-expansion",
+    business: "Integrated energy & chemical logistics — LPG sourcing/distribution (90% rev) and liquid storage (high-margin). Strategic terminals at 7 major Indian ports.",
+    cashCycle: 30, interestCoverage: 6.8, fixedAssetTurnover: 2.1
+  },
+  {
+    name: "Minda Corporation", symbol: "MINDACORP", sector: "Auto components",
+    price: 485, change: 4.2, ath: 490, ath52w: 490, low52w: 295,
+    consolidationMonths: 10, breakout: true, nearAth: true, athDistance: 1.0,
+    rsAboveZero: true, rsValue: 1.35,
+    volumeRatio: 3.1, avgVolume: 650000, todayVolume: 2015000,
+    salesCagr5y: 15.2, profitCagr5y: 12.5, roce: 14, de: 0.3, cfoRatio: 55,
+    opm: 11, orderBookRatio: 1.6, promoterHolding: 70.2,
+    invalidation: 460, marketCap: 11200,
+    growth: "FY30: 19-20% CAGR guidance. ₹10,000 Cr order book. EV component orders growing. FY30 target ₹17,500 Cr.",
+    risk: "EV transition risk to legacy ICE products, copper pass-through dependency, 2W demand cyclicality",
+    business: "Locks, smart keys, die casting, wiring harness, instrument clusters, EV components. Revenue: 2W/3W 48%, CV 28%, 4W 14%. India 89%.",
+    cashCycle: 52, interestCoverage: 8.2, fixedAssetTurnover: 3.5
+  },
+  {
+    name: "Net Web Technologies", symbol: "NETWEB", sector: "AI / HPC",
+    price: 520, change: 5.8, ath: 525, ath52w: 525, low52w: 310,
+    consolidationMonths: 8, breakout: true, nearAth: true, athDistance: 1.0,
+    rsAboveZero: true, rsValue: 1.52,
+    volumeRatio: 3.8, avgVolume: 420000, todayVolume: 1596000,
+    salesCagr5y: 55, profitCagr5y: 55, roce: 28, de: 0.12, cfoRatio: 32,
+    opm: 13.5, orderBookRatio: 1.1, promoterHolding: 66.9,
+    invalidation: 450, marketCap: 5800,
+    growth: "35-40% YoY revenue growth guidance. NVIDIA select OEM partner. AI/supercomputing theme. ₹2,400 Cr order book.",
+    risk: "Weak cash cycle (32% CFO ratio), short-term borrowings ₹271 Cr from zero, top 5 clients = 65-70% rev, promoter stake fell 71%→67%",
+    business: "Designs & manufactures HPC supercomputers and AI servers. NVIDIA Grace CPU & GH200 partner. Clients: IITs, ISRO, NMDC, govt institutions. ~50% govt revenue.",
+    cashCycle: 121, interestCoverage: 12, fixedAssetTurnover: 4.2
+  },
+  {
+    name: "ACME Solar Holdings", symbol: "ACME", sector: "Renewable energy",
+    price: 328, change: 3.2, ath: 340, ath52w: 340, low52w: 195,
+    consolidationMonths: 6, breakout: true, nearAth: true, athDistance: 3.5,
+    rsAboveZero: true, rsValue: 1.08,
+    volumeRatio: 1.9, avgVolume: 350000, todayVolume: 665000,
+    salesCagr5y: 8, profitCagr5y: 15, roce: 9, de: 1.2, cfoRatio: 48,
+    opm: 55, orderBookRatio: 2.5, promoterHolding: 56.4,
+    invalidation: 295, marketCap: 9500,
+    growth: "10GW solar + 15GWh BESS target. Battery EBITDA potential 75-80%. ₹12,475 Cr capex pipeline.",
+    risk: "Heavy funding requirement (75:25 D:E), land acquisition delays, transmission bottlenecks, execution risk",
+    business: "Utility-scale solar & wind power + battery storage. Sells electricity via 25-year PPAs to govt offtakers (NTPC etc.) at fixed tariffs. Asset-heavy annuity model.",
+    cashCycle: 38, interestCoverage: 2.8, fixedAssetTurnover: 0.4
+  },
+  // Extended universe - additional stocks for screener
+  {
+    name: "Tata Motors", symbol: "TATAMOTORS", sector: "Automobile",
+    price: 745, change: 1.2, ath: 1080, ath52w: 1080, low52w: 620,
+    consolidationMonths: 14, breakout: false, nearAth: false, athDistance: 31,
+    rsAboveZero: false, rsValue: -0.5,
+    volumeRatio: 1.1, avgVolume: 18000000, todayVolume: 19800000,
+    salesCagr5y: 20, profitCagr5y: 45, roce: 22, de: 0.6, cfoRatio: 65,
+    opm: 12, orderBookRatio: 0.5, promoterHolding: 46.4,
+    invalidation: 620, marketCap: 275000,
+    growth: "JLR turnaround, EV market leader in India, commercial vehicle strength",
+    risk: "Global luxury slowdown, high capex for EV transition, FX exposure",
+    business: "Full-range auto OEM — passenger (Tata + JLR), commercial vehicles, EV. Global presence across 125+ countries.",
+    cashCycle: 25, interestCoverage: 5.5, fixedAssetTurnover: 2.8
+  },
+  {
+    name: "Dixon Technologies", symbol: "DIXON", sector: "Electronics manufacturing",
+    price: 18500, change: 2.8, ath: 19200, ath52w: 19200, low52w: 10800,
+    consolidationMonths: 4, breakout: false, nearAth: true, athDistance: 3.6,
+    rsAboveZero: true, rsValue: 1.42,
+    volumeRatio: 1.8, avgVolume: 320000, todayVolume: 576000,
+    salesCagr5y: 42, profitCagr5y: 38, roce: 24, de: 0.15, cfoRatio: 45,
+    opm: 4.5, orderBookRatio: 1.8, promoterHolding: 34.2,
+    invalidation: 16500, marketCap: 110000,
+    growth: "PLI scheme beneficiary, Samsung/Apple contract manufacturing, expanding into IT hardware",
+    risk: "Thin margins (4.5% OPM), customer concentration, rapid tech obsolescence",
+    business: "India's largest EMS player — TVs, washing machines, smartphones, IT hardware, lighting. Contract manufacturer for global brands.",
+    cashCycle: 58, interestCoverage: 15, fixedAssetTurnover: 5.5
+  },
+  {
+    name: "Kaynes Technology", symbol: "KAYNES", sector: "Electronics / Defence",
+    price: 5800, change: 4.5, ath: 6100, ath52w: 6100, low52w: 3200,
+    consolidationMonths: 5, breakout: false, nearAth: true, athDistance: 4.9,
+    rsAboveZero: true, rsValue: 1.18,
+    volumeRatio: 2.4, avgVolume: 180000, todayVolume: 432000,
+    salesCagr5y: 48, profitCagr5y: 62, roce: 15, de: 0.25, cfoRatio: 38,
+    opm: 16, orderBookRatio: 3.2, promoterHolding: 61.5,
+    invalidation: 5200, marketCap: 33000,
+    growth: "Defence + space electronics, IoT solutions, EV charger modules, order book ₹5,000+ Cr",
+    risk: "Execution scaling risk, working capital stretch, govt order dependency",
+    business: "End-to-end electronics manufacturing — PCB assembly, box build, OSAT. Sectors: industrial, defence, aerospace, automotive, medical, IoT.",
+    cashCycle: 95, interestCoverage: 7, fixedAssetTurnover: 2.2
+  },
+  {
+    name: "Cera Sanitaryware", symbol: "CERA", sector: "Building materials",
+    price: 9100, change: -0.8, ath: 10500, ath52w: 10500, low52w: 6200,
+    consolidationMonths: 18, breakout: false, nearAth: false, athDistance: 13.3,
+    rsAboveZero: false, rsValue: -0.3,
+    volumeRatio: 0.7, avgVolume: 25000, todayVolume: 17500,
+    salesCagr5y: 14, profitCagr5y: 16, roce: 25, de: 0.05, cfoRatio: 72,
+    opm: 18, orderBookRatio: 0, promoterHolding: 53.8,
+    invalidation: 8200, marketCap: 11800,
+    growth: "Premium brand, capacity expansion in faucets & tiles, distribution expansion",
+    risk: "Real estate cyclicality, gas price sensitivity, competitive intensity",
+    business: "Premium sanitaryware, faucets, tiles. Strong brand with 5000+ dealers. Low debt, high cash generation.",
+    cashCycle: 42, interestCoverage: 45, fixedAssetTurnover: 2.0
+  },
+  {
+    name: "Jupiter Wagons", symbol: "JWL", sector: "Railways / Defence",
+    price: 540, change: 5.2, ath: 555, ath52w: 555, low52w: 270,
+    consolidationMonths: 7, breakout: false, nearAth: true, athDistance: 2.7,
+    rsAboveZero: true, rsValue: 1.65,
+    volumeRatio: 3.5, avgVolume: 950000, todayVolume: 3325000,
+    salesCagr5y: 38, profitCagr5y: 52, roce: 19, de: 0.22, cfoRatio: 42,
+    opm: 14, orderBookRatio: 4.5, promoterHolding: 63.1,
+    invalidation: 480, marketCap: 22000,
+    growth: "Railway modernization theme, ₹12,000 Cr order book, container manufacturing, EV components entry",
+    risk: "Govt capex dependency, order lumpy nature, new segment execution",
+    business: "Railway wagons, containers, brake systems, commercial vehicle components. Key beneficiary of Indian Railways modernization capex.",
+    cashCycle: 68, interestCoverage: 9.5, fixedAssetTurnover: 2.8
+  },
+  {
+    name: "Praj Industries", symbol: "PRAJIND", sector: "Engineering / Bioenergy",
+    price: 780, change: 1.5, ath: 815, ath52w: 815, low52w: 480,
+    consolidationMonths: 12, breakout: false, nearAth: true, athDistance: 4.3,
+    rsAboveZero: true, rsValue: 0.92,
+    volumeRatio: 1.6, avgVolume: 380000, todayVolume: 608000,
+    salesCagr5y: 22, profitCagr5y: 28, roce: 32, de: 0.02, cfoRatio: 68,
+    opm: 14.5, orderBookRatio: 1.4, promoterHolding: 36.8,
+    invalidation: 700, marketCap: 14200,
+    growth: "Bioenergy/CBG/SAF theme, zero-debt, global ethanol technology leader, ESG tailwinds",
+    risk: "Order flow dependent on govt ethanol policy, margin pressure from fixed-price contracts",
+    business: "Global bioenergy solutions — ethanol plants, CBG (compressed biogas), sustainable aviation fuel tech. Also water treatment & brewery equipment.",
+    cashCycle: 35, interestCoverage: 120, fixedAssetTurnover: 3.8
+  },
+  {
+    name: "Affle India", symbol: "AFFLE", sector: "Adtech / AI",
+    price: 1680, change: 3.8, ath: 1720, ath52w: 1720, low52w: 1020,
+    consolidationMonths: 15, breakout: false, nearAth: true, athDistance: 2.3,
+    rsAboveZero: true, rsValue: 1.28,
+    volumeRatio: 2.0, avgVolume: 200000, todayVolume: 400000,
+    salesCagr5y: 32, profitCagr5y: 28, roce: 20, de: 0.08, cfoRatio: 60,
+    opm: 19, orderBookRatio: 0, promoterHolding: 58.4,
+    invalidation: 1500, marketCap: 23000,
+    growth: "AI-powered adtech, emerging market penetration, connected TV growth, CPCU model scaling",
+    risk: "Customer concentration in BFSI/ecommerce, acquisition integration risk, adtech regulation",
+    business: "Consumer intelligence platform — AI-driven mobile advertising. CPCU (cost-per-converted-user) model. Strong in India, SE Asia, Africa.",
+    cashCycle: 55, interestCoverage: 35, fixedAssetTurnover: 1.8
+  }
+];
+
+let watchlist = JSON.parse(localStorage.getItem('tf_watchlist') || '[]');
+
+// ──────────────────────────────────────────
+// SCREENER ENGINE
+// ──────────────────────────────────────────
+function computeConviction(s) {
+  let score = 0;
+  let max = 100;
+  // Technical (40 points)
+  if (s.breakout) score += 15;
+  else if (s.nearAth || s.athDistance <= 5) score += 10;
+  if (s.rsAboveZero) score += 10;
+  if (s.rsValue > 1) score += 5;
+  if (s.volumeRatio >= 2) score += 5;
+  else if (s.volumeRatio >= 1.5) score += 3;
+  if (s.consolidationMonths >= 6) score += 5;
+  // Fundamentals (40 points)
+  if (s.salesCagr5y >= 20) score += 8;
+  else if (s.salesCagr5y >= 10) score += 5;
+  if (s.roce >= 20) score += 8;
+  else if (s.roce >= 12) score += 5;
+  if (s.de <= 0.5) score += 6;
+  else if (s.de <= 1) score += 3;
+  if (s.cfoRatio >= 50) score += 8;
+  else if (s.cfoRatio >= 35) score += 4;
+  if (s.orderBookRatio >= 2) score += 6;
+  else if (s.orderBookRatio >= 1) score += 3;
+  if (s.opm >= 15) score += 4;
+  else if (s.opm >= 10) score += 2;
+  // Risk deductions (20 points max deduction)
+  if (s.promoterHolding < 40) score -= 5;
+  if (s.cashCycle > 100) score -= 5;
+  if (s.interestCoverage < 3) score -= 5;
+  if (s.de > 1.5) score -= 5;
+
+  return Math.max(0, Math.min(100, score));
+}
+
+function getConvictionColor(score) {
+  if (score >= 70) return 'var(--green)';
+  if (score >= 45) return 'var(--amber)';
+  return 'var(--red)';
+}
+
+function getConvictionLabel(score) {
+  if (score >= 80) return 'Very high';
+  if (score >= 65) return 'High';
+  if (score >= 45) return 'Moderate';
+  if (score >= 25) return 'Low';
+  return 'Very low';
+}
+
+function getAthBadge(s) {
+  if (s.breakout && s.athDistance <= 1) return `<span class="ath-distance ath-at"><i class="ti ti-trophy" style="font-size:12px"></i> ATH breakout</span>`;
+  if (s.athDistance <= 5) return `<span class="ath-distance ath-near"><i class="ti ti-flame" style="font-size:12px"></i> ${s.athDistance.toFixed(1)}% from ATH</span>`;
+  return `<span class="ath-distance ath-far">${s.athDistance.toFixed(1)}% from ATH</span>`;
+}
+
+function getVolBar(ratio) {
+  const pct = Math.min(100, (ratio / 5) * 100);
+  const color = ratio >= 3 ? 'var(--green)' : ratio >= 2 ? 'var(--amber)' : 'var(--text-muted)';
+  return `<div class="vol-bar"><div class="vol-bar-track"><div class="vol-bar-fill" style="width:${pct}%; background:${color}"></div></div><span style="font-size:12px; font-weight:600; color:${color}">${ratio.toFixed(1)}x</span></div>`;
+}
+
+function runScreener() {
+  const filters = {
+    breakout: document.getElementById('f-breakout').checked,
+    nearAth: document.getElementById('f-near-ath').checked,
+    rsPositive: document.getElementById('f-rs-positive').checked,
+    highVol: document.getElementById('f-high-vol').checked,
+    consol: parseInt(document.getElementById('f-consol').value),
+    volRatio: parseFloat(document.getElementById('f-volratio').value),
+    salesCagr: parseInt(document.getElementById('f-salescagr').value),
+    roce: parseInt(document.getElementById('f-roce').value),
+    de: parseFloat(document.getElementById('f-de').value),
+    cfo: parseInt(document.getElementById('f-cfo').value),
+    orderbook: document.getElementById('f-orderbook').checked,
+    exclDebt: document.getElementById('f-excl-debt').checked,
+    exclCash: document.getElementById('f-excl-cashflow').checked,
+    promoter: document.getElementById('f-promoter').checked,
+  };
+  const sortBy = document.getElementById('sort-by').value;
+
+  let results = STOCKS.filter(s => {
+    let techPass = true;
+    if (filters.breakout && !filters.nearAth && !s.breakout) techPass = false;
+    if (!filters.breakout && filters.nearAth && s.athDistance > 5) techPass = false;
+    if (filters.breakout && filters.nearAth && !s.breakout && s.athDistance > 5) techPass = false;
+    if (!techPass) return false;
+
+    if (filters.rsPositive && !s.rsAboveZero) return false;
+    if (filters.highVol && s.volumeRatio < 2) return false;
+    if (s.consolidationMonths < filters.consol) return false;
+    if (s.volumeRatio < filters.volRatio) return false;
+    if (s.salesCagr5y < filters.salesCagr) return false;
+    if (s.roce < filters.roce) return false;
+    if (s.de > filters.de) return false;
+    if (s.cfoRatio < filters.cfo) return false;
+    if (filters.orderbook && s.orderBookRatio < 1) return false;
+    if (filters.exclDebt && s.de > 1.5) return false;
+    if (filters.exclCash && s.cfoRatio < 35) return false;
+    if (filters.promoter && s.promoterHolding < 50) return false;
+    return true;
+  });
+
+  // Sort
+  results.forEach(s => s._conviction = computeConviction(s));
+  results.sort((a, b) => {
+    switch(sortBy) {
+      case 'conviction': return b._conviction - a._conviction;
+      case 'rs': return b.rsValue - a.rsValue;
+      case 'volume': return b.volumeRatio - a.volumeRatio;
+      case 'ath-distance': return a.athDistance - b.athDistance;
+      case 'sales-growth': return b.salesCagr5y - a.salesCagr5y;
+      default: return b._conviction - a._conviction;
+    }
+  });
+
+  // Stats
+  const breakouts = results.filter(s => s.breakout).length;
+  const nearAths = results.filter(s => !s.breakout && s.athDistance <= 5).length;
+  const rsPos = results.filter(s => s.rsAboveZero).length;
+  document.getElementById('qs-breakout').textContent = breakouts;
+  document.getElementById('qs-near').textContent = nearAths;
+  document.getElementById('qs-rs').textContent = rsPos;
+  document.getElementById('qs-total').textContent = results.length;
+  document.getElementById('result-count').textContent = results.length;
+
+  // Render
+  const list = document.getElementById('stock-list');
+  if (results.length === 0) {
+    list.innerHTML = `<div style="text-align:center; padding:60px 20px; color:var(--text-muted)"><i class="ti ti-mood-empty" style="font-size:48px; display:block; margin-bottom:12px"></i>No stocks match your filters. Try relaxing some criteria.</div>`;
+    return;
+  }
+
+  list.innerHTML = results.map(s => {
+    const conv = s._conviction;
+    const convColor = getConvictionColor(conv);
+    const isWatchlisted = watchlist.includes(s.symbol);
+    const cardClass = s.breakout ? 'breakout' : (s.athDistance <= 5 ? 'near-ath' : '');
+
+    let signals = [];
+    if (s.breakout) signals.push(`<span class="signal-badge signal-green"><i class="ti ti-trophy"></i> ATH breakout</span>`);
+    else if (s.athDistance <= 5) signals.push(`<span class="signal-badge signal-amber"><i class="ti ti-flame"></i> Near ATH (${s.athDistance.toFixed(1)}%)</span>`);
+    if (s.rsAboveZero) signals.push(`<span class="signal-badge signal-green"><i class="ti ti-trending-up"></i> RS outperform</span>`);
+    else signals.push(`<span class="signal-badge signal-red"><i class="ti ti-trending-down"></i> RS underperform</span>`);
+    if (s.volumeRatio >= 3) signals.push(`<span class="signal-badge signal-blue"><i class="ti ti-chart-bar"></i> Huge volume ${s.volumeRatio.toFixed(1)}x</span>`);
+    else if (s.volumeRatio >= 2) signals.push(`<span class="signal-badge signal-blue"><i class="ti ti-chart-bar"></i> High volume ${s.volumeRatio.toFixed(1)}x</span>`);
+    if (s.cfoRatio < 35) signals.push(`<span class="signal-badge signal-red"><i class="ti ti-alert-triangle"></i> Weak cash flow</span>`);
+    if (s.de > 1) signals.push(`<span class="signal-badge signal-amber"><i class="ti ti-scale"></i> High debt ${s.de}x</span>`);
+
+    return `
+    <div class="stock-card ${cardClass}" onclick="openCouncil('${s.symbol}')">
+      <div class="stock-card-top">
+        <div class="stock-info">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <div class="stock-name">${s.name}</div>
+            <span style="font-size:12px; color:var(--text-muted); background:var(--bg-elevated); padding:2px 8px; border-radius:4px;">${s.symbol}</span>
+            <button onclick="event.stopPropagation(); toggleWatchlist('${s.symbol}')" style="background:none; border:none; cursor:pointer; font-size:18px; color:${isWatchlisted ? 'var(--gold)' : 'var(--text-muted)'}; padding:0;">
+              <i class="ti ti-star${isWatchlisted ? '-filled' : ''}"></i>
+            </button>
+          </div>
+          <div class="stock-sector">${s.sector} · MCap ₹${(s.marketCap/1000).toFixed(0)}K Cr</div>
+        </div>
+        <div class="stock-price-block">
+          <div class="stock-price">₹${s.price.toLocaleString()}</div>
+          <div class="stock-change ${s.change >= 0 ? 'up' : 'down'}">${s.change >= 0 ? '+' : ''}${s.change}%</div>
+        </div>
+      </div>
+      <div class="stock-metrics">
+        <div class="metric">
+          <div class="metric-label">RS value</div>
+          <div class="metric-value" style="color:${s.rsAboveZero ? 'var(--green)' : 'var(--red)'}">${s.rsValue > 0 ? '+' : ''}${s.rsValue.toFixed(2)}</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Volume</div>
+          <div class="metric-value">${getVolBar(s.volumeRatio)}</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">5Y sales CAGR</div>
+          <div class="metric-value">${s.salesCagr5y}%</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">ROCE</div>
+          <div class="metric-value">${s.roce}%</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">D/E</div>
+          <div class="metric-value" style="color:${s.de <= 0.5 ? 'var(--green)' : s.de <= 1 ? 'var(--amber)' : 'var(--red)'}">${s.de}x</div>
+        </div>
+      </div>
+      <div class="stock-signals">${signals.join('')}
+        <span class="invalidation-tag"><i class="ti ti-shield-x" style="font-size:12px"></i> Invalid below ₹${s.invalidation}</span>
+      </div>
+      <div class="conviction-bar"><div class="conviction-fill" style="width:${conv}%; background:${convColor}"></div></div>
+      <div class="conviction-label">
+        <span>Conviction: <strong style="color:${convColor}">${getConvictionLabel(conv)}</strong></span>
+        <strong style="color:${convColor}">${conv}/100</strong>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ──────────────────────────────────────────
+// HEDGE FUND COUNCIL
+// ──────────────────────────────────────────
+const COUNCIL = [
+  { name: "The Chartist", role: "Technical analyst", color: "#6c5ce7", icon: "ti-chart-candle", focus: "breakout, RS, volume, price action" },
+  { name: "The Fundamentalist", role: "Business analyst", color: "#00cec9", icon: "ti-building-bank", focus: "revenue, profit, growth, moat" },
+  { name: "Cash Flow King", role: "Financial analyst", color: "#00d68f", icon: "ti-cash", focus: "CFO, working capital, debt" },
+  { name: "Risk Sentinel", role: "Risk manager", color: "#ff6b6b", icon: "ti-shield-check", focus: "risk, concentration, macro" },
+  { name: "The Allocator", role: "Portfolio strategist", color: "#f9ca24", icon: "ti-crown", focus: "conviction, position sizing" }
+];
+
+function rateCouncil(stock) {
+  const s = stock;
+  const ratings = [];
+
+  // Chartist
+  let chartScore = 0;
+  if (s.breakout) chartScore += 30; else if (s.athDistance <= 5) chartScore += 20;
+  if (s.rsAboveZero) chartScore += 25; else chartScore -= 10;
+  if (s.rsValue > 1.2) chartScore += 10; else if (s.rsValue > 0) chartScore += 5;
+  chartScore += Math.min(15, s.volumeRatio * 5);
+  if (s.consolidationMonths >= 12) chartScore += 15; else if (s.consolidationMonths >= 6) chartScore += 10;
+  chartScore += 5;
+  ratings.push({ ...COUNCIL[0], score: Math.min(100, Math.max(0, chartScore)),
+    comment: s.breakout
+      ? `Strong ATH breakout after ${s.consolidationMonths}mo consolidation. RS at ${s.rsValue.toFixed(2)} confirms outperformance. Volume ${s.volumeRatio.toFixed(1)}x average — institutional interest visible.`
+      : s.athDistance <= 5
+        ? `Stock ${s.athDistance.toFixed(1)}% from ATH — near breakout zone. RS ${s.rsAboveZero ? 'positive' : 'negative'}. Volume ${s.volumeRatio.toFixed(1)}x. Watch for decisive close above ₹${s.ath}.`
+        : `No breakout yet. ${s.athDistance.toFixed(1)}% from ATH. RS ${s.rsAboveZero ? 'turning positive' : 'weak'}. Wait for setup to develop.`
+  });
+
+  // Fundamentalist
+  let fundScore = 0;
+  if (s.salesCagr5y >= 25) fundScore += 25; else if (s.salesCagr5y >= 15) fundScore += 18; else if (s.salesCagr5y >= 10) fundScore += 10;
+  if (s.profitCagr5y >= 30) fundScore += 20; else if (s.profitCagr5y >= 15) fundScore += 12;
+  if (s.roce >= 20) fundScore += 20; else if (s.roce >= 12) fundScore += 12;
+  if (s.orderBookRatio >= 3) fundScore += 15; else if (s.orderBookRatio >= 1) fundScore += 8;
+  if (s.opm >= 15) fundScore += 10; else if (s.opm >= 10) fundScore += 5;
+  fundScore += 10;
+  ratings.push({ ...COUNCIL[1], score: Math.min(100, Math.max(0, fundScore)),
+    comment: `Sales CAGR ${s.salesCagr5y}%, profit CAGR ${s.profitCagr5y}% over 5 years. ROCE ${s.roce}%. OPM ${s.opm}%. ${s.orderBookRatio > 0 ? `Order book ${s.orderBookRatio}x revenue provides visibility.` : 'No order book visibility.'} ${s.growth}`
+  });
+
+  // Cash Flow King
+  let cashScore = 0;
+  if (s.cfoRatio >= 60) cashScore += 30; else if (s.cfoRatio >= 45) cashScore += 20; else if (s.cfoRatio >= 30) cashScore += 10;
+  if (s.de <= 0.2) cashScore += 25; else if (s.de <= 0.5) cashScore += 18; else if (s.de <= 1) cashScore += 10;
+  if (s.interestCoverage >= 10) cashScore += 20; else if (s.interestCoverage >= 4) cashScore += 12; else cashScore += 3;
+  if (s.cashCycle <= 45) cashScore += 15; else if (s.cashCycle <= 80) cashScore += 8;
+  cashScore += 10;
+  ratings.push({ ...COUNCIL[2], score: Math.min(100, Math.max(0, cashScore)),
+    comment: `CFO/OP ratio: ${s.cfoRatio}%. D/E: ${s.de}x. Interest coverage: ${s.interestCoverage}x. Cash cycle: ${s.cashCycle} days. ${s.cfoRatio < 40 ? '⚠️ Weak cash realization — monitor working capital closely.' : 'Cash generation is healthy.'} ${s.de > 1 ? 'Elevated leverage needs watching.' : ''}`
+  });
+
+  // Risk Sentinel
+  let riskScore = 80;
+  if (s.de > 1.5) riskScore -= 20; else if (s.de > 1) riskScore -= 10;
+  if (s.cfoRatio < 35) riskScore -= 15;
+  if (s.cashCycle > 100) riskScore -= 15;
+  if (s.promoterHolding < 40) riskScore -= 15; else if (s.promoterHolding < 50) riskScore -= 8;
+  if (s.interestCoverage < 3) riskScore -= 15;
+  ratings.push({ ...COUNCIL[3], score: Math.min(100, Math.max(0, riskScore)),
+    comment: `Promoter holding: ${s.promoterHolding}%. ${s.risk}. Invalidation: ₹${s.invalidation}. ${s.promoterHolding < 50 ? '⚠️ Low promoter stake is a concern.' : 'Promoter holding adequate.'}`
+  });
+
+  // Allocator
+  const avgScore = ratings.reduce((a, r) => a + r.score, 0) / 4;
+  let allocScore = avgScore;
+  if (s.breakout && s.rsAboveZero && s.volumeRatio >= 2) allocScore += 10;
+  if (s.athDistance <= 2 && s.rsAboveZero) allocScore += 5;
+
+  let action, actionColor;
+  if (allocScore >= 75) { action = 'Strong buy'; actionColor = 'var(--green)'; }
+  else if (allocScore >= 60) { action = 'Buy'; actionColor = 'var(--green)'; }
+  else if (allocScore >= 45) { action = 'Accumulate'; actionColor = 'var(--amber)'; }
+  else if (allocScore >= 30) { action = 'Hold'; actionColor = 'var(--amber)'; }
+  else { action = 'Avoid'; actionColor = 'var(--red)'; }
+
+  ratings.push({ ...COUNCIL[4], score: Math.min(100, Math.max(0, Math.round(allocScore))),
+    comment: `Council consensus: ${action}. Overall conviction ${Math.round(allocScore)}/100. ${allocScore >= 65 ? 'All parameters align — breakout + fundamentals + cash flow support the setup.' : allocScore >= 45 ? 'Mixed signals — some parameters strong but concerns remain. Size position carefully.' : 'Multiple red flags — either wait for improvement or avoid.'} Invalidation at ₹${s.invalidation}.`,
+    action, actionColor
+  });
+
+  return ratings;
+}
+
+function openCouncil(symbol) {
+  document.getElementById('council-input').value = symbol;
+  switchTab('council');
+  runCouncil();
+}
+
+function runCouncil() {
+  const input = document.getElementById('council-input').value.trim().toUpperCase();
+  if (!input) return;
+
+  const stock = STOCKS.find(s => s.symbol.toUpperCase() === input || s.name.toUpperCase().includes(input));
+  if (!stock) {
+    document.getElementById('council-report').innerHTML = `<div style="text-align:center; padding:40px; color:var(--text-muted)"><i class="ti ti-search" style="font-size:36px; display:block; margin-bottom:8px"></i>Stock "${input}" not found in database. Try: MOTHERSON, AEGIS, MINDACORP, NETWEB, ACME, DIXON, KAYNES, JWL, PRAJIND, AFFLE</div>`;
+    document.getElementById('council-report').classList.add('visible');
+    return;
+  }
+
+  const ratings = rateCouncil(stock);
+  const avgScore = Math.round(ratings.reduce((a, r) => a + r.score, 0) / ratings.length);
+  const allocator = ratings[4];
+  const verdictColor = avgScore >= 70 ? 'var(--green)' : avgScore >= 45 ? 'var(--amber)' : 'var(--red)';
+
+  const report = document.getElementById('council-report');
+  report.classList.add('visible');
+  report.innerHTML = `
+    <div class="report-header">
+      <div class="report-stock-info">
+        <h3>${stock.name} <span style="color:var(--text-muted); font-weight:400; font-size:16px">(${stock.symbol})</span></h3>
+        <p>${stock.sector} · ₹${stock.price.toLocaleString()} · MCap ₹${(stock.marketCap/1000).toFixed(0)}K Cr · ${getAthBadge(stock)}</p>
+      </div>
+      <div class="report-verdict">
+        <div class="verdict-score" style="color:${verdictColor}">${avgScore}</div>
+        <div class="verdict-label" style="color:${allocator.actionColor}">${allocator.action}</div>
+      </div>
+    </div>
+
+    <div class="council-members">
+      ${ratings.map(r => {
+        const sc = r.score;
+        const col = sc >= 70 ? 'var(--green)' : sc >= 45 ? 'var(--amber)' : 'var(--red)';
+        const act = sc >= 70 ? 'Bullish' : sc >= 45 ? 'Neutral' : 'Bearish';
+        const actBg = sc >= 70 ? 'var(--green-bg)' : sc >= 45 ? 'var(--amber-bg)' : 'var(--red-bg)';
+        return `
+          <div class="council-member">
+            <div class="member-avatar" style="background:${r.color}"><i class="${r.icon}" style="font-size:22px"></i></div>
+            <div class="member-name">${r.name}</div>
+            <div class="member-role">${r.role}</div>
+            <div class="member-vote" style="color:${col}">${sc}</div>
+            <div class="member-action" style="color:${col}; background:${actBg}">${r.action || act}</div>
+          </div>`;
+      }).join('')}
+    </div>
+
+    <div class="rating-section">
+      <div class="rating-card">
+        <div class="rating-card-title"><i class="ti ti-chart-radar"></i> Parameter-wise breakdown</div>
+        ${[
+          { label: 'ATH breakout / near ATH', value: stock.breakout ? 100 : Math.max(0, 100 - stock.athDistance * 5) },
+          { label: 'Relative strength', value: stock.rsAboveZero ? Math.min(100, 50 + stock.rsValue * 30) : Math.max(0, 30 + stock.rsValue * 20) },
+          { label: 'Volume conviction', value: Math.min(100, stock.volumeRatio * 25) },
+          { label: 'Consolidation base', value: Math.min(100, stock.consolidationMonths * 6) },
+          { label: '5Y sales growth', value: Math.min(100, stock.salesCagr5y * 2) },
+          { label: '5Y profit growth', value: Math.min(100, stock.profitCagr5y * 1.8) },
+          { label: 'ROCE', value: Math.min(100, stock.roce * 3) },
+          { label: 'Operating margin', value: Math.min(100, stock.opm * 4) },
+          { label: 'Order book visibility', value: Math.min(100, stock.orderBookRatio * 20) },
+          { label: 'Cash flow quality (CFO/OP)', value: stock.cfoRatio },
+          { label: 'Balance sheet (low D/E)', value: Math.max(0, 100 - stock.de * 50) },
+          { label: 'Interest coverage', value: Math.min(100, stock.interestCoverage * 8) },
+          { label: 'Cash cycle efficiency', value: Math.max(0, 100 - stock.cashCycle) },
+          { label: 'Promoter confidence', value: Math.min(100, stock.promoterHolding * 1.3) },
+        ].map(p => {
+          const col = p.value >= 70 ? 'var(--green)' : p.value >= 40 ? 'var(--amber)' : 'var(--red)';
+          return `<div class="rating-row">
+            <div class="rating-label">${p.label}</div>
+            <div class="rating-bar-track"><div class="rating-bar-fill" style="width:${Math.round(p.value)}%; background:${col}"></div></div>
+            <div class="rating-score" style="color:${col}">${Math.round(p.value)}</div>
+          </div>`;
+        }).join('')}
+      </div>
+
+      <div class="rating-card">
+        <div class="rating-card-title"><i class="ti ti-message-circle"></i> Council commentary</div>
+        ${ratings.map(r => `
+          <div style="padding:12px 0; border-bottom:0.5px solid var(--border);">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+              <span style="font-size:14px; color:${r.color}"><i class="${r.icon}"></i></span>
+              <span style="font-size:13px; font-weight:600;">${r.name}</span>
+              <span style="font-size:11px; color:var(--text-muted)">${r.role}</span>
+            </div>
+            <p style="font-size:13px; color:var(--text-secondary); line-height:1.6;">${r.comment}</p>
+          </div>
+        `).join('')}
+      </div>
+
+      <div class="rating-card" style="border: 1px solid ${verdictColor}33; background: ${verdictColor}08;">
+        <div class="rating-card-title" style="color:${verdictColor}"><i class="ti ti-gavel"></i> Final verdict</div>
+        <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:16px; margin-bottom:16px;">
+          <div>
+            <div style="font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;">Action</div>
+            <div style="font-size:18px; font-weight:700; color:${allocator.actionColor}">${allocator.action}</div>
+          </div>
+          <div>
+            <div style="font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;">Invalidation</div>
+            <div style="font-size:18px; font-weight:700; color:var(--red)">₹${stock.invalidation}</div>
+          </div>
+          <div>
+            <div style="font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;">Council score</div>
+            <div style="font-size:18px; font-weight:700; color:${verdictColor}">${avgScore}/100</div>
+          </div>
+        </div>
+        <p style="font-size:13px; color:var(--text-secondary); line-height:1.7; border-top:0.5px solid var(--border); padding-top:12px;">
+          <strong style="color:var(--text-primary)">Key positives:</strong> ${stock.breakout ? 'ATH breakout confirmed' : `Near ATH (${stock.athDistance.toFixed(1)}%)`}, RS ${stock.rsAboveZero ? 'positive' : 'negative'}, ${stock.salesCagr5y}% sales CAGR, ROCE ${stock.roce}%${stock.orderBookRatio > 1 ? `, ${stock.orderBookRatio}x order book` : ''}.
+          <br><strong style="color:var(--text-primary)">Key risks:</strong> ${stock.risk}
+          <br><br><em style="color:var(--text-muted)">Disclaimer: This is for educational purposes only. Not a buy/sell recommendation. Do your own research. Investment in securities market are subject to market risks.</em>
+        </p>
+      </div>
+    </div>
+  `;
+
+  // Animate bars
+  setTimeout(() => {
+    report.querySelectorAll('.rating-bar-fill').forEach(bar => {
+      const w = bar.style.width;
+      bar.style.width = '0%';
+      setTimeout(() => bar.style.width = w, 50);
+    });
+  }, 100);
+}
+
+// ──────────────────────────────────────────
+// WATCHLIST
+// ──────────────────────────────────────────
+function toggleWatchlist(symbol) {
+  const idx = watchlist.indexOf(symbol);
+  if (idx >= 0) watchlist.splice(idx, 1);
+  else watchlist.push(symbol);
+  localStorage.setItem('tf_watchlist', JSON.stringify(watchlist));
+  runScreener();
+  renderWatchlist();
+}
+
+function renderWatchlist() {
+  const area = document.getElementById('watchlist-area');
+  if (watchlist.length === 0) {
+    area.innerHTML = `<div style="text-align:center; padding:60px; color:var(--text-muted)"><i class="ti ti-star" style="font-size:48px; display:block; margin-bottom:12px"></i>No stocks in watchlist. Star stocks from the screener to add them here.</div>`;
+    return;
+  }
+  const wStocks = STOCKS.filter(s => watchlist.includes(s.symbol));
+  area.innerHTML = wStocks.map(s => {
+    const conv = computeConviction(s);
+    const convColor = getConvictionColor(conv);
+    return `
+    <div class="stock-card ${s.breakout ? 'breakout' : s.athDistance <= 5 ? 'near-ath' : ''}" style="margin-bottom:12px; cursor:pointer" onclick="openCouncil('${s.symbol}')">
+      <div class="stock-card-top">
+        <div>
+          <div class="stock-name">${s.name} <span style="color:var(--text-muted); font-size:13px">${s.symbol}</span></div>
+          <div class="stock-sector">${s.sector}</div>
+        </div>
+        <div class="stock-price-block">
+          <div class="stock-price">₹${s.price.toLocaleString()}</div>
+          <div class="stock-change ${s.change >= 0 ? 'up' : 'down'}">${s.change >= 0 ? '+' : ''}${s.change}%</div>
+        </div>
+      </div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+        ${getAthBadge(s)}
+        <span style="font-size:12px; color:${s.rsAboveZero?'var(--green)':'var(--red)'}">RS: ${s.rsValue > 0 ? '+' : ''}${s.rsValue.toFixed(2)}</span>
+        <span style="font-size:12px; color:var(--text-muted)">Vol: ${s.volumeRatio.toFixed(1)}x</span>
+        <span style="font-size:12px; font-weight:600; color:${convColor}; margin-left:auto;">Conviction: ${conv}/100</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ──────────────────────────────────────────
+// TAB SWITCHING
+// ──────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.nav-tab').forEach((t, i) => {
+    t.classList.toggle('active', ['screener','council','watchlist'][i] === tab);
+  });
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  if (tab === 'watchlist') renderWatchlist();
+}
+
+// Init
+runScreener();
+</script>
+</body>
+</html>

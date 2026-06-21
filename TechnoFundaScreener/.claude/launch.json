@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "technofunda-screener",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", "/Users/pw/Desktop/OnePiece/TechnoFundaScreener", "-l", "3847"],
+      "port": 3847
+    }
+  ]
+}
