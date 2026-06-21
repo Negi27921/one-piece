@@ -342,6 +342,40 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 16p
         </div>
 
         <div class="filter-card">
+          <div class="filter-title"><i class="ti ti-scan" style="color:var(--cyan)"></i> Chartink scanner conditions</div>
+          <div class="toggle-row">
+            <span class="toggle-label">Close >= 95% of 252D high</span>
+            <label class="toggle"><input type="checkbox" id="f-ci-ath95" checked onchange="runScreener()"><span class="toggle-slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <span class="toggle-label">Close / 65D ago close > 1 (RS+)</span>
+            <label class="toggle"><input type="checkbox" id="f-ci-rs65" checked onchange="runScreener()"><span class="toggle-slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <span class="toggle-label">EMA(20) > EMA(50) (bullish cross)</span>
+            <label class="toggle"><input type="checkbox" id="f-ci-emacross" checked onchange="runScreener()"><span class="toggle-slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <span class="toggle-label">Close > EMA(50)</span>
+            <label class="toggle"><input type="checkbox" id="f-ci-aboveema50" checked onchange="runScreener()"><span class="toggle-slider"></span></label>
+          </div>
+          <div class="range-group" style="margin-top:12px">
+            <div class="range-label">
+              <span>Min price (₹)</span>
+              <span class="range-value" id="rv-minprice">₹20</span>
+            </div>
+            <input type="range" min="1" max="500" value="20" step="1" id="f-ci-minprice" oninput="document.getElementById('rv-minprice').textContent='₹'+this.value; runScreener()">
+          </div>
+          <div class="range-group">
+            <div class="range-label">
+              <span>Min daily volume</span>
+              <span class="range-value" id="rv-minvol">50K</span>
+            </div>
+            <input type="range" min="10000" max="5000000" value="50000" step="10000" id="f-ci-minvol" oninput="document.getElementById('rv-minvol').textContent=(this.value>=1000000?(this.value/1000000).toFixed(1)+'M':(this.value/1000).toFixed(0)+'K'); runScreener()">
+          </div>
+        </div>
+
+        <div class="filter-card">
           <div class="filter-title"><i class="ti ti-building-bank"></i> Fundamental filters</div>
 
           <div class="range-group">
@@ -464,7 +498,8 @@ const STOCKS = [
     growth: "FY30 target: ₹10L Cr revenue (36% CAGR), ROCE target 40%",
     risk: "Europe/NA demand weakness, copper price volatility, borrowings ₹10,250 Cr",
     business: "India's largest auto ancillary — wiring harness, mirrors, bumpers, polymer modules. 47 acquisitions since 2002. Present in 44 countries.",
-    cashCycle: 45, interestCoverage: 4.72, fixedAssetTurnover: 3.0
+    cashCycle: 45, interestCoverage: 4.72, fixedAssetTurnover: 3.0,
+    ema20: 146.8, ema50: 138.5, close65dAgo: 121.3, high252d: 149.2
   },
   {
     name: "Aegis Logistics", symbol: "AEGIS", sector: "Energy logistics",
@@ -478,7 +513,8 @@ const STOCKS = [
     growth: "₹47,000 Cr capex pipeline by 2030. ₹7000/ton margin guidance. 7 major port terminals.",
     risk: "Execution risk on ₹47K Cr capex, crude-linked LPG prices, asset utilization post-expansion",
     business: "Integrated energy & chemical logistics — LPG sourcing/distribution (90% rev) and liquid storage (high-margin). Strategic terminals at 7 major Indian ports.",
-    cashCycle: 30, interestCoverage: 6.8, fixedAssetTurnover: 2.1
+    cashCycle: 30, interestCoverage: 6.8, fixedAssetTurnover: 2.1,
+    ema20: 878, ema50: 842, close65dAgo: 745, high252d: 910
   },
   {
     name: "Minda Corporation", symbol: "MINDACORP", sector: "Auto components",
@@ -492,7 +528,8 @@ const STOCKS = [
     growth: "FY30: 19-20% CAGR guidance. ₹10,000 Cr order book. EV component orders growing. FY30 target ₹17,500 Cr.",
     risk: "EV transition risk to legacy ICE products, copper pass-through dependency, 2W demand cyclicality",
     business: "Locks, smart keys, die casting, wiring harness, instrument clusters, EV components. Revenue: 2W/3W 48%, CV 28%, 4W 14%. India 89%.",
-    cashCycle: 52, interestCoverage: 8.2, fixedAssetTurnover: 3.5
+    cashCycle: 52, interestCoverage: 8.2, fixedAssetTurnover: 3.5,
+    ema20: 480, ema50: 455, close65dAgo: 368, high252d: 490
   },
   {
     name: "Net Web Technologies", symbol: "NETWEB", sector: "AI / HPC",
@@ -506,7 +543,8 @@ const STOCKS = [
     growth: "35-40% YoY revenue growth guidance. NVIDIA select OEM partner. AI/supercomputing theme. ₹2,400 Cr order book.",
     risk: "Weak cash cycle (32% CFO ratio), short-term borrowings ₹271 Cr from zero, top 5 clients = 65-70% rev, promoter stake fell 71%→67%",
     business: "Designs & manufactures HPC supercomputers and AI servers. NVIDIA Grace CPU & GH200 partner. Clients: IITs, ISRO, NMDC, govt institutions. ~50% govt revenue.",
-    cashCycle: 121, interestCoverage: 12, fixedAssetTurnover: 4.2
+    cashCycle: 121, interestCoverage: 12, fixedAssetTurnover: 4.2,
+    ema20: 515, ema50: 478, close65dAgo: 385, high252d: 525
   },
   {
     name: "ACME Solar Holdings", symbol: "ACME", sector: "Renewable energy",
@@ -520,7 +558,8 @@ const STOCKS = [
     growth: "10GW solar + 15GWh BESS target. Battery EBITDA potential 75-80%. ₹12,475 Cr capex pipeline.",
     risk: "Heavy funding requirement (75:25 D:E), land acquisition delays, transmission bottlenecks, execution risk",
     business: "Utility-scale solar & wind power + battery storage. Sells electricity via 25-year PPAs to govt offtakers (NTPC etc.) at fixed tariffs. Asset-heavy annuity model.",
-    cashCycle: 38, interestCoverage: 2.8, fixedAssetTurnover: 0.4
+    cashCycle: 38, interestCoverage: 2.8, fixedAssetTurnover: 0.4,
+    ema20: 322, ema50: 305, close65dAgo: 265, high252d: 340
   },
   // Extended universe - additional stocks for screener
   {
@@ -535,7 +574,8 @@ const STOCKS = [
     growth: "JLR turnaround, EV market leader in India, commercial vehicle strength",
     risk: "Global luxury slowdown, high capex for EV transition, FX exposure",
     business: "Full-range auto OEM — passenger (Tata + JLR), commercial vehicles, EV. Global presence across 125+ countries.",
-    cashCycle: 25, interestCoverage: 5.5, fixedAssetTurnover: 2.8
+    cashCycle: 25, interestCoverage: 5.5, fixedAssetTurnover: 2.8,
+    ema20: 730, ema50: 755, close65dAgo: 780, high252d: 1080
   },
   {
     name: "Dixon Technologies", symbol: "DIXON", sector: "Electronics manufacturing",
@@ -549,7 +589,8 @@ const STOCKS = [
     growth: "PLI scheme beneficiary, Samsung/Apple contract manufacturing, expanding into IT hardware",
     risk: "Thin margins (4.5% OPM), customer concentration, rapid tech obsolescence",
     business: "India's largest EMS player — TVs, washing machines, smartphones, IT hardware, lighting. Contract manufacturer for global brands.",
-    cashCycle: 58, interestCoverage: 15, fixedAssetTurnover: 5.5
+    cashCycle: 58, interestCoverage: 15, fixedAssetTurnover: 5.5,
+    ema20: 18200, ema50: 17500, close65dAgo: 15200, high252d: 19200
   },
   {
     name: "Kaynes Technology", symbol: "KAYNES", sector: "Electronics / Defence",
@@ -563,7 +604,8 @@ const STOCKS = [
     growth: "Defence + space electronics, IoT solutions, EV charger modules, order book ₹5,000+ Cr",
     risk: "Execution scaling risk, working capital stretch, govt order dependency",
     business: "End-to-end electronics manufacturing — PCB assembly, box build, OSAT. Sectors: industrial, defence, aerospace, automotive, medical, IoT.",
-    cashCycle: 95, interestCoverage: 7, fixedAssetTurnover: 2.2
+    cashCycle: 95, interestCoverage: 7, fixedAssetTurnover: 2.2,
+    ema20: 5700, ema50: 5400, close65dAgo: 4500, high252d: 6100
   },
   {
     name: "Cera Sanitaryware", symbol: "CERA", sector: "Building materials",
@@ -577,7 +619,8 @@ const STOCKS = [
     growth: "Premium brand, capacity expansion in faucets & tiles, distribution expansion",
     risk: "Real estate cyclicality, gas price sensitivity, competitive intensity",
     business: "Premium sanitaryware, faucets, tiles. Strong brand with 5000+ dealers. Low debt, high cash generation.",
-    cashCycle: 42, interestCoverage: 45, fixedAssetTurnover: 2.0
+    cashCycle: 42, interestCoverage: 45, fixedAssetTurnover: 2.0,
+    ema20: 8900, ema50: 9200, close65dAgo: 9500, high252d: 10500
   },
   {
     name: "Jupiter Wagons", symbol: "JWL", sector: "Railways / Defence",
@@ -591,7 +634,8 @@ const STOCKS = [
     growth: "Railway modernization theme, ₹12,000 Cr order book, container manufacturing, EV components entry",
     risk: "Govt capex dependency, order lumpy nature, new segment execution",
     business: "Railway wagons, containers, brake systems, commercial vehicle components. Key beneficiary of Indian Railways modernization capex.",
-    cashCycle: 68, interestCoverage: 9.5, fixedAssetTurnover: 2.8
+    cashCycle: 68, interestCoverage: 9.5, fixedAssetTurnover: 2.8,
+    ema20: 530, ema50: 498, close65dAgo: 395, high252d: 555
   },
   {
     name: "Praj Industries", symbol: "PRAJIND", sector: "Engineering / Bioenergy",
@@ -605,7 +649,8 @@ const STOCKS = [
     growth: "Bioenergy/CBG/SAF theme, zero-debt, global ethanol technology leader, ESG tailwinds",
     risk: "Order flow dependent on govt ethanol policy, margin pressure from fixed-price contracts",
     business: "Global bioenergy solutions — ethanol plants, CBG (compressed biogas), sustainable aviation fuel tech. Also water treatment & brewery equipment.",
-    cashCycle: 35, interestCoverage: 120, fixedAssetTurnover: 3.8
+    cashCycle: 35, interestCoverage: 120, fixedAssetTurnover: 3.8,
+    ema20: 768, ema50: 740, close65dAgo: 650, high252d: 815
   },
   {
     name: "Affle India", symbol: "AFFLE", sector: "Adtech / AI",
@@ -619,7 +664,8 @@ const STOCKS = [
     growth: "AI-powered adtech, emerging market penetration, connected TV growth, CPCU model scaling",
     risk: "Customer concentration in BFSI/ecommerce, acquisition integration risk, adtech regulation",
     business: "Consumer intelligence platform — AI-driven mobile advertising. CPCU (cost-per-converted-user) model. Strong in India, SE Asia, Africa.",
-    cashCycle: 55, interestCoverage: 35, fixedAssetTurnover: 1.8
+    cashCycle: 55, interestCoverage: 35, fixedAssetTurnover: 1.8,
+    ema20: 1660, ema50: 1580, close65dAgo: 1350, high252d: 1720
   }
 ];
 
@@ -639,6 +685,11 @@ function computeConviction(s) {
   if (s.volumeRatio >= 2) score += 5;
   else if (s.volumeRatio >= 1.5) score += 3;
   if (s.consolidationMonths >= 6) score += 5;
+  // Chartink conditions bonus
+  if (s.ema20 && s.ema50 && s.ema20 > s.ema50) score += 3;
+  if (s.ema50 && s.price > s.ema50) score += 2;
+  if (s.close65dAgo && (s.price / s.close65dAgo) > 1) score += 2;
+  if (s.high252d && s.price >= s.high252d * 0.95) score += 3;
   // Fundamentals (40 points)
   if (s.salesCagr5y >= 20) score += 8;
   else if (s.salesCagr5y >= 10) score += 5;
@@ -703,6 +754,12 @@ function runScreener() {
     exclDebt: document.getElementById('f-excl-debt').checked,
     exclCash: document.getElementById('f-excl-cashflow').checked,
     promoter: document.getElementById('f-promoter').checked,
+    ciAth95: document.getElementById('f-ci-ath95').checked,
+    ciRs65: document.getElementById('f-ci-rs65').checked,
+    ciEmaCross: document.getElementById('f-ci-emacross').checked,
+    ciAboveEma50: document.getElementById('f-ci-aboveema50').checked,
+    ciMinPrice: parseInt(document.getElementById('f-ci-minprice').value),
+    ciMinVol: parseInt(document.getElementById('f-ci-minvol').value),
   };
   const sortBy = document.getElementById('sort-by').value;
 
@@ -725,6 +782,14 @@ function runScreener() {
     if (filters.exclDebt && s.de > 1.5) return false;
     if (filters.exclCash && s.cfoRatio < 35) return false;
     if (filters.promoter && s.promoterHolding < 50) return false;
+
+    // Chartink scanner conditions
+    if (filters.ciAth95 && s.price < s.high252d * 0.95) return false;
+    if (filters.ciRs65 && s.close65dAgo && (s.price / s.close65dAgo) <= 1) return false;
+    if (filters.ciEmaCross && s.ema20 && s.ema50 && s.ema20 <= s.ema50) return false;
+    if (filters.ciAboveEma50 && s.ema50 && s.price <= s.ema50) return false;
+    if (s.price < filters.ciMinPrice) return false;
+    if (s.todayVolume < filters.ciMinVol) return false;
     return true;
   });
 
@@ -771,6 +836,9 @@ function runScreener() {
     else signals.push(`<span class="signal-badge signal-red"><i class="ti ti-trending-down"></i> RS underperform</span>`);
     if (s.volumeRatio >= 3) signals.push(`<span class="signal-badge signal-blue"><i class="ti ti-chart-bar"></i> Huge volume ${s.volumeRatio.toFixed(1)}x</span>`);
     else if (s.volumeRatio >= 2) signals.push(`<span class="signal-badge signal-blue"><i class="ti ti-chart-bar"></i> High volume ${s.volumeRatio.toFixed(1)}x</span>`);
+    if (s.ema20 && s.ema50 && s.ema20 > s.ema50) signals.push(`<span class="signal-badge signal-green"><i class="ti ti-arrows-cross"></i> EMA 20>50</span>`);
+    if (s.ema50 && s.price > s.ema50) signals.push(`<span class="signal-badge signal-blue"><i class="ti ti-arrow-up-circle"></i> Above EMA50</span>`);
+    if (s.close65dAgo && (s.price / s.close65dAgo) > 1) signals.push(`<span class="signal-badge signal-green"><i class="ti ti-chart-line"></i> RS+ 65D</span>`);
     if (s.cfoRatio < 35) signals.push(`<span class="signal-badge signal-red"><i class="ti ti-alert-triangle"></i> Weak cash flow</span>`);
     if (s.de > 1) signals.push(`<span class="signal-badge signal-amber"><i class="ti ti-scale"></i> High debt ${s.de}x</span>`);
 
