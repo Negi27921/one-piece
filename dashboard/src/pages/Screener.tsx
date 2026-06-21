@@ -1030,6 +1030,35 @@ export function ScreenerPage() {
             );
           })}
 
+          {/* TechnoFunda Screener link */}
+          <motion.a
+            href="/technofunda"
+            target="_blank"
+            rel="noreferrer"
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            style={{
+              display: "flex", alignItems: "center", gap: 7,
+              padding: "8px 18px", borderRadius: 10,
+              background: "linear-gradient(135deg, #6c5ce718, #a29bfe18)",
+              border: "1px solid #6c5ce744",
+              color: "#a29bfe", cursor: "pointer", fontFamily: "var(--font-body)",
+              fontSize: 12.5, fontWeight: 700, textDecoration: "none",
+              transition: "all 150ms",
+            }}
+          >
+            <Zap style={{ width: 14, height: 14 }} />
+            TechnoFunda
+            <span style={{
+              fontSize: 8, fontWeight: 800, letterSpacing: "0.08em",
+              background: "linear-gradient(90deg,#6c5ce7,#a29bfe)",
+              color: "#fff", padding: "1px 5px", borderRadius: 4, marginLeft: 2,
+            }}>
+              NEW
+            </span>
+            <ExternalLink style={{ width: 11, height: 11, opacity: 0.6 }} />
+          </motion.a>
+
           {/* Tab switcher */}
           <div style={{ marginLeft: "auto", display: "flex", gap: 4, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: 3 }}>
             {([

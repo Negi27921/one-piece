@@ -31,6 +31,7 @@
   ],
   "routes": [
     { "src": "/api/(.*)", "dest": "/api/index.py" },
+    { "src": "/technofunda", "dest": "/technofunda.html" },
     { "handle": "filesystem" },
     { "src": "/assets/(.*)", "dest": "/dashboard/assets/$1" },
     { "src": "/favicon\\.svg", "dest": "/dashboard/favicon.svg" },
