@@ -260,7 +260,7 @@ export interface ScreenerResponse {
   scanned?: number;
 }
 
-type ScreenerStrategy = "vcp" | "ipo_base" | "rocket_base" | "breakout" | "rsi_reversal" | "golden_cross" | "multibagger" | "custom";
+type ScreenerStrategy = "vcp" | "ipo_base" | "rocket_base" | "breakout" | "rsi_reversal" | "golden_cross" | "multibagger" | "technofunda" | "custom";
 
 export const useScreener = (
   strategy: ScreenerStrategy,
@@ -283,6 +283,7 @@ export const useScreener = (
       });
       return api.get<ScreenerResponse>(`/screener/results?${params}`);
     },
+    enabled: strategy !== "technofunda",
     staleTime: 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
   });

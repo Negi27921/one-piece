@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ScanSearch, RefreshCw, CheckCircle2, XCircle, TrendingUp, TrendingDown, ChevronDown, ChevronUp, Filter, Loader2, Rocket, Layers, Zap, ArrowUpRight, GitMerge, BarChart3, Globe, ExternalLink, Star, BookOpen, TrendingUp as PnlIcon, Calendar, Send, Bot, Clock, Award } from "lucide-react";
+import { ScanSearch, RefreshCw, CheckCircle2, XCircle, TrendingUp, TrendingDown, ChevronDown, ChevronUp, Filter, Loader2, Rocket, Layers, Zap, ArrowUpRight, GitMerge, BarChart3, Globe, ExternalLink, Star, BookOpen, TrendingUp as PnlIcon, Calendar, Send, Bot, Clock, Award, Flame } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { useScreener, useScanChunk, useBatchPrices, type ScreenerResult } from "@/api/market-queries";
 import { useAnalyseStock } from "@/api/watchlist-queries";
 import { useQueryClient } from "@tanstack/react-query";
+import { TechnoFundaScreener } from "./TechnoFunda";
 
 // ── Paper Trade Types ─────────────────────────────────────────────────────────
 interface PaperTrade {
@@ -98,7 +99,7 @@ function updatePaperPrices(results: ScreenerResult[]) {
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-type Strategy = "vcp" | "ipo_base" | "rocket_base" | "breakout" | "rsi_reversal" | "golden_cross" | "multibagger";
+type Strategy = "vcp" | "ipo_base" | "rocket_base" | "breakout" | "rsi_reversal" | "golden_cross" | "multibagger" | "technofunda";
 type Universe = "nifty500" | "full";
 
 const STRATEGY_META: Record<Strategy, { label: string; icon: React.ReactNode; color: string; desc: string; badge?: string }> = {
@@ -144,6 +145,13 @@ const STRATEGY_META: Record<Strategy, { label: string; icon: React.ReactNode; co
     icon: <GitMerge style={{ width: 14, height: 14 }} />,
     color: "#fbbf24",
     desc: "EMA20 > EMA50 fresh cross, price above SMA200, volume surge",
+  },
+  technofunda: {
+    label: "TechnoFunda",
+    icon: <Flame style={{ width: 14, height: 14 }} />,
+    color: "#a29bfe",
+    badge: "🔥 NEW",
+    desc: "TechnoFunda RS analysis — ATH breakout + relative strength + Chartink filters + Hedge Fund Council rating. 12 curated stocks.",
   },
 };
 
@@ -993,6 +1001,7 @@ export function ScreenerPage() {
             const m = STRATEGY_META[s];
             const active = strategy === s;
             const isMultibagger = s === "multibagger";
+            const isTechnofunda = s === "technofunda";
             return (
               <motion.button
                 key={s}
@@ -1001,17 +1010,17 @@ export function ScreenerPage() {
                 whileTap={{ scale: 0.97 }}
                 style={{
                   display: "flex", alignItems: "center", gap: 7,
-                  padding: isMultibagger ? "8px 18px" : "8px 16px",
+                  padding: (isMultibagger || isTechnofunda) ? "8px 18px" : "8px 16px",
                   borderRadius: 10,
                   background: active
-                    ? isMultibagger ? `linear-gradient(135deg, #f59e0b28, #d97706 18)` : `${m.color}18`
-                    : isMultibagger ? "linear-gradient(135deg, #f59e0b10, #78350f08)" : "var(--surface)",
-                  border: `1px solid ${active ? m.color + "77" : isMultibagger ? "#f59e0b44" : "var(--border)"}`,
-                  color: active ? m.color : isMultibagger ? "#f59e0b" : "var(--text-3)",
+                    ? isTechnofunda ? `linear-gradient(135deg, #6c5ce728, #a29bfe18)` : isMultibagger ? `linear-gradient(135deg, #f59e0b28, #d97706 18)` : `${m.color}18`
+                    : isTechnofunda ? "linear-gradient(135deg, #6c5ce710, #4a3f8008)" : isMultibagger ? "linear-gradient(135deg, #f59e0b10, #78350f08)" : "var(--surface)",
+                  border: `1px solid ${active ? m.color + "77" : isTechnofunda ? "#a29bfe44" : isMultibagger ? "#f59e0b44" : "var(--border)"}`,
+                  color: active ? m.color : isTechnofunda ? "#a29bfe" : isMultibagger ? "#f59e0b" : "var(--text-3)",
                   cursor: "pointer", fontFamily: "var(--font-body)",
-                  fontSize: 12.5, fontWeight: active || isMultibagger ? 700 : 500,
+                  fontSize: 12.5, fontWeight: active || isMultibagger || isTechnofunda ? 700 : 500,
                   transition: "all 150ms",
-                  boxShadow: active && isMultibagger ? "0 0 16px #f59e0b33" : "none",
+                  boxShadow: active && isMultibagger ? "0 0 16px #f59e0b33" : active && isTechnofunda ? "0 0 16px #a29bfe33" : "none",
                   position: "relative",
                 }}
               >
@@ -1026,38 +1035,18 @@ export function ScreenerPage() {
                     CUSTOM
                   </span>
                 )}
+                {isTechnofunda && (
+                  <span style={{
+                    fontSize: 8, fontWeight: 800, letterSpacing: "0.08em",
+                    background: "linear-gradient(90deg,#6c5ce7,#a29bfe)",
+                    color: "#fff", padding: "1px 5px", borderRadius: 4, marginLeft: 2,
+                  }}>
+                    NEW
+                  </span>
+                )}
               </motion.button>
             );
           })}
-
-          {/* TechnoFunda Screener link */}
-          <motion.a
-            href="/technofunda"
-            target="_blank"
-            rel="noreferrer"
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-            style={{
-              display: "flex", alignItems: "center", gap: 7,
-              padding: "8px 18px", borderRadius: 10,
-              background: "linear-gradient(135deg, #6c5ce718, #a29bfe18)",
-              border: "1px solid #6c5ce744",
-              color: "#a29bfe", cursor: "pointer", fontFamily: "var(--font-body)",
-              fontSize: 12.5, fontWeight: 700, textDecoration: "none",
-              transition: "all 150ms",
-            }}
-          >
-            <Zap style={{ width: 14, height: 14 }} />
-            TechnoFunda
-            <span style={{
-              fontSize: 8, fontWeight: 800, letterSpacing: "0.08em",
-              background: "linear-gradient(90deg,#6c5ce7,#a29bfe)",
-              color: "#fff", padding: "1px 5px", borderRadius: 4, marginLeft: 2,
-            }}>
-              NEW
-            </span>
-            <ExternalLink style={{ width: 11, height: 11, opacity: 0.6 }} />
-          </motion.a>
 
           {/* Tab switcher */}
           <div style={{ marginLeft: "auto", display: "flex", gap: 4, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: 3 }}>
@@ -1209,7 +1198,13 @@ export function ScreenerPage() {
           </div>
         </div>
 
-        {tab === "screener" && <>
+        {tab === "screener" && strategy === "technofunda" && (
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.22 }}>
+            <TechnoFundaScreener />
+          </motion.div>
+        )}
+
+        {tab === "screener" && strategy !== "technofunda" && <>
         {/* Stats row */}
         <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
           {[
