@@ -1204,8 +1204,6 @@ function TradingInsights({ trades }: { trades: Trade[] }) {
   const mpMax = Math.max(...monthly.map(m => m.pnl), 0);
   const mpMin = Math.min(...monthly.map(m => m.pnl), 0);
   const mpRange = (mpMax - mpMin) || 1;
-  const mpH = 180;
-  const mpZeroY = cgPad.t + (mpMax / mpRange) * (mpH - cgPad.t - cgPad.b);
 
   // ── Stock bars ──
   const stockBarMax = topWinners.length ? topWinners[0].pnl : 1;
