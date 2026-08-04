@@ -1062,6 +1062,474 @@ function EquityCurve({ trades }: { trades: Trade[] }) {
   );
 }
 
+// ── Trading Insights ──────────────────────────────────────────────────────────
+
+function TradingInsights({ trades }: { trades: Trade[] }) {
+  const analysis = useMemo(() => {
+    const closed = trades.filter(t => t.status === "Closed" && t.sellPrice != null && t.exitDate);
+    if (!closed.length) return null;
+
+    const sorted = [...closed].sort(
+      (a, b) => new Date(a.exitDate!).getTime() - new Date(b.exitDate!).getTime()
+    );
+
+    // Monthly P&L
+    const monthlyMap = new Map<string, { pnl: number; trades: number; wins: number; capital: number }>();
+    for (const t of sorted) {
+      const d = new Date(t.exitDate!);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const entry = monthlyMap.get(key) ?? { pnl: 0, trades: 0, wins: 0, capital: 0 };
+      const pnl = t.brokerPl ?? (t.sellPrice! - t.buyPrice) * t.quantity;
+      entry.pnl += pnl;
+      entry.trades++;
+      if (pnl > 0) entry.wins++;
+      entry.capital += t.capitalUsed;
+      monthlyMap.set(key, entry);
+    }
+    const monthly = Array.from(monthlyMap.entries())
+      .map(([month, d]) => ({ month, ...d, winRate: d.trades ? (d.wins / d.trades) * 100 : 0 }))
+      .sort((a, b) => a.month.localeCompare(b.month));
+
+    // Cumulative capital growth
+    let cumPnl = 0;
+    const capitalGrowth = monthly.map(m => {
+      cumPnl += m.pnl;
+      return { month: m.month, cumPnl, monthPnl: m.pnl };
+    });
+
+    // Stock-level analysis
+    const stockMap = new Map<string, { pnl: number; trades: number; wins: number; capital: number }>();
+    for (const t of sorted) {
+      const sym = t.stockName.trim().toUpperCase();
+      const entry = stockMap.get(sym) ?? { pnl: 0, trades: 0, wins: 0, capital: 0 };
+      const pnl = t.brokerPl ?? (t.sellPrice! - t.buyPrice) * t.quantity;
+      entry.pnl += pnl;
+      entry.trades++;
+      if (pnl > 0) entry.wins++;
+      entry.capital += t.capitalUsed;
+      stockMap.set(sym, entry);
+    }
+    const topStocks = Array.from(stockMap.entries())
+      .map(([name, d]) => ({ name, ...d, roi: d.capital > 0 ? (d.pnl / d.capital) * 100 : 0 }))
+      .sort((a, b) => b.pnl - a.pnl);
+    const topWinners = topStocks.filter(s => s.pnl > 0).slice(0, 8);
+    const topLosers = topStocks.filter(s => s.pnl < 0).sort((a, b) => a.pnl - b.pnl).slice(0, 5);
+
+    // Trade type breakdown
+    const typeMap = new Map<string, { pnl: number; trades: number; wins: number; capital: number }>();
+    for (const t of sorted) {
+      const type = t.tradeType || "Unknown";
+      const entry = typeMap.get(type) ?? { pnl: 0, trades: 0, wins: 0, capital: 0 };
+      const pnl = t.brokerPl ?? (t.sellPrice! - t.buyPrice) * t.quantity;
+      entry.pnl += pnl;
+      entry.trades++;
+      if (pnl > 0) entry.wins++;
+      entry.capital += t.capitalUsed;
+      typeMap.set(type, entry);
+    }
+    const tradeTypes = Array.from(typeMap.entries())
+      .map(([type, d]) => ({ type, ...d, winRate: d.trades ? (d.wins / d.trades) * 100 : 0 }));
+
+    // Winning trade patterns
+    const winners = sorted.filter(t => {
+      const pnl = t.brokerPl ?? (t.sellPrice! - t.buyPrice) * t.quantity;
+      return pnl > 0;
+    });
+    const losers = sorted.filter(t => {
+      const pnl = t.brokerPl ?? (t.sellPrice! - t.buyPrice) * t.quantity;
+      return pnl < 0;
+    });
+
+    const avgWinDays = winners.length
+      ? winners.reduce((s, t) => s + (t.daysHeld ?? Math.max(1, Math.round((new Date(t.exitDate!).getTime() - new Date(t.entryDate).getTime()) / 86400000))), 0) / winners.length
+      : 0;
+    const avgLossDays = losers.length
+      ? losers.reduce((s, t) => s + (t.daysHeld ?? Math.max(1, Math.round((new Date(t.exitDate!).getTime() - new Date(t.entryDate).getTime()) / 86400000))), 0) / losers.length
+      : 0;
+    const avgWinSize = winners.length ? winners.reduce((s, t) => s + t.capitalUsed, 0) / winners.length : 0;
+    const avgLossSize = losers.length ? losers.reduce((s, t) => s + t.capitalUsed, 0) / losers.length : 0;
+
+    // Holding period distribution
+    const holdBuckets = { "Intraday": 0, "1-3 days": 0, "4-7 days": 0, "1-2 weeks": 0, "2-4 weeks": 0, "1+ month": 0 };
+    const holdBucketPnl = { "Intraday": 0, "1-3 days": 0, "4-7 days": 0, "1-2 weeks": 0, "2-4 weeks": 0, "1+ month": 0 };
+    for (const t of sorted) {
+      const days = t.daysHeld ?? Math.round((new Date(t.exitDate!).getTime() - new Date(t.entryDate).getTime()) / 86400000);
+      const pnl = t.brokerPl ?? (t.sellPrice! - t.buyPrice) * t.quantity;
+      const bucket = days === 0 ? "Intraday" : days <= 3 ? "1-3 days" : days <= 7 ? "4-7 days"
+        : days <= 14 ? "1-2 weeks" : days <= 30 ? "2-4 weeks" : "1+ month";
+      holdBuckets[bucket as keyof typeof holdBuckets]++;
+      holdBucketPnl[bucket as keyof typeof holdBucketPnl] += pnl;
+    }
+
+    return {
+      monthly, capitalGrowth, topWinners, topLosers, tradeTypes,
+      avgWinDays, avgLossDays, avgWinSize, avgLossSize,
+      holdBuckets, holdBucketPnl,
+      totalClosed: closed.length,
+      totalWins: winners.length,
+      totalLosses: losers.length,
+    };
+  }, [trades]);
+
+  if (!analysis) return null;
+
+  const { monthly, capitalGrowth, topWinners, topLosers, tradeTypes,
+    avgWinDays, avgLossDays, avgWinSize, avgLossSize, holdBuckets, holdBucketPnl } = analysis;
+
+  const cardStyle: React.CSSProperties = {
+    background: "var(--surface-1)", borderRadius: 14,
+    border: "1px solid var(--border)", padding: "20px 22px",
+  };
+  const titleStyle: React.CSSProperties = {
+    fontSize: 13, fontWeight: 800, color: "var(--text-1)",
+    fontFamily: "var(--font-body)", marginBottom: 14, letterSpacing: "-0.01em",
+  };
+  const labelStyle: React.CSSProperties = {
+    fontSize: 10, color: "var(--text-4)", fontWeight: 600,
+    fontFamily: "var(--font-mono)", letterSpacing: "0.06em",
+  };
+
+  // ── Capital Growth MoM SVG ──
+  const cgW = 680, cgH = 220, cgPad = { l: 60, r: 20, t: 20, b: 40 };
+  const cgInW = cgW - cgPad.l - cgPad.r;
+  const cgInH = cgH - cgPad.t - cgPad.b;
+  const cgMax = Math.max(...capitalGrowth.map(d => d.cumPnl), 0);
+  const cgMin = Math.min(...capitalGrowth.map(d => d.cumPnl), 0);
+  const cgRange = (cgMax - cgMin) || 1;
+  const cgBarW = Math.min(40, (cgInW / capitalGrowth.length) * 0.6);
+  const cgGap = cgInW / capitalGrowth.length;
+  const cgZeroY = cgPad.t + (cgMax / cgRange) * cgInH;
+
+  // ── Monthly P&L bars ──
+  const mpMax = Math.max(...monthly.map(m => m.pnl), 0);
+  const mpMin = Math.min(...monthly.map(m => m.pnl), 0);
+  const mpRange = (mpMax - mpMin) || 1;
+  const mpH = 180;
+  const mpZeroY = cgPad.t + (mpMax / mpRange) * (mpH - cgPad.t - cgPad.b);
+
+  // ── Stock bars ──
+  const stockBarMax = topWinners.length ? topWinners[0].pnl : 1;
+
+  const monthLabel = (m: string) => {
+    const [, mm] = m.split("-");
+    return ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][parseInt(mm)];
+  };
+
+  return (
+    <div style={{ marginTop: 24, display: "flex", flexDirection: "column", gap: 18 }}>
+      <div style={titleStyle}>
+        <span style={{ fontSize: 16 }}>Trading Intelligence</span>
+        <span style={{ ...labelStyle, marginLeft: 12 }}>
+          {analysis.totalClosed} CLOSED TRADES ANALYZED
+        </span>
+      </div>
+
+      {/* Row 1: Capital Growth + Monthly P&L */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        {/* Capital Growth */}
+        <div style={cardStyle}>
+          <div style={titleStyle}>Capital Growth (Cumulative P&L)</div>
+          <svg viewBox={`0 0 ${cgW} ${cgH}`} style={{ width: "100%" }}>
+            {/* Zero line */}
+            <line x1={cgPad.l} x2={cgW - cgPad.r} y1={cgZeroY} y2={cgZeroY}
+              stroke="rgba(255,255,255,0.1)" strokeDasharray="4 3" />
+            <text x={cgPad.l - 8} y={cgZeroY + 3} textAnchor="end"
+              fill="rgba(255,255,255,0.3)" fontSize="9" fontFamily="var(--font-mono)">0</text>
+            {/* Bars */}
+            {capitalGrowth.map((d, i) => {
+              const x = cgPad.l + i * cgGap + (cgGap - cgBarW) / 2;
+              const barH = Math.abs(d.cumPnl / cgRange) * cgInH;
+              const y = d.cumPnl >= 0 ? cgZeroY - barH : cgZeroY;
+              const fill = d.cumPnl >= 0 ? "#10b981" : "#ef4444";
+              return (
+                <g key={i}>
+                  <rect x={x} y={y} width={cgBarW} height={Math.max(barH, 1)}
+                    rx={3} fill={fill} opacity={0.85} />
+                  <text x={x + cgBarW / 2} y={d.cumPnl >= 0 ? y - 4 : y + barH + 11}
+                    textAnchor="middle" fill={fill} fontSize="8.5" fontWeight="700"
+                    fontFamily="var(--font-mono)">
+                    {Math.abs(d.cumPnl) >= 1e5 ? `${(d.cumPnl / 1e5).toFixed(1)}L` : `${(d.cumPnl / 1e3).toFixed(0)}K`}
+                  </text>
+                  <text x={x + cgBarW / 2} y={cgH - 8} textAnchor="middle"
+                    fill="rgba(255,255,255,0.4)" fontSize="9.5" fontWeight="600">
+                    {monthLabel(d.month)}
+                  </text>
+                </g>
+              );
+            })}
+            {/* Trend line */}
+            {capitalGrowth.length > 1 && (
+              <polyline
+                points={capitalGrowth.map((d, i) => {
+                  const x = cgPad.l + i * cgGap + cgGap / 2;
+                  const y = cgPad.t + ((cgMax - d.cumPnl) / cgRange) * cgInH;
+                  return `${x},${y}`;
+                }).join(" ")}
+                fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinejoin="round"
+              />
+            )}
+          </svg>
+        </div>
+
+        {/* Monthly P&L */}
+        <div style={cardStyle}>
+          <div style={titleStyle}>Monthly P&L Breakdown</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {monthly.map(m => {
+              const pct = mpRange > 0 ? (Math.abs(m.pnl) / mpRange) * 100 : 0;
+              const isProfit = m.pnl >= 0;
+              return (
+                <div key={m.month} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ width: 36, ...labelStyle, textAlign: "right" }}>{monthLabel(m.month)}</span>
+                  <div style={{ flex: 1, height: 22, background: "var(--surface-2)", borderRadius: 6, overflow: "hidden", position: "relative" }}>
+                    <div style={{
+                      width: `${Math.min(pct, 100)}%`, height: "100%", borderRadius: 6,
+                      background: isProfit
+                        ? "linear-gradient(90deg, rgba(16,185,129,0.3), rgba(16,185,129,0.7))"
+                        : "linear-gradient(90deg, rgba(239,68,68,0.3), rgba(239,68,68,0.7))",
+                      transition: "width 600ms ease",
+                    }} />
+                    <span style={{
+                      position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)",
+                      fontSize: 10, fontWeight: 700, color: isProfit ? "#10b981" : "#ef4444",
+                      fontFamily: "var(--font-mono)",
+                    }}>
+                      {isProfit ? "+" : ""}{m.pnl >= 1e5 || m.pnl <= -1e5 ? `${(m.pnl / 1e5).toFixed(2)}L` : `${(m.pnl / 1e3).toFixed(1)}K`}
+                    </span>
+                  </div>
+                  <span style={{ width: 50, textAlign: "right", fontSize: 9, color: "var(--text-3)", fontFamily: "var(--font-mono)" }}>
+                    {m.winRate.toFixed(0)}% W
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Row 2: Top Stocks + Trade Type */}
+      <div style={{ display: "grid", gridTemplateColumns: "1.3fr 0.7fr", gap: 16 }}>
+        {/* Top Profitable Stocks */}
+        <div style={cardStyle}>
+          <div style={titleStyle}>Most Profitable Stocks</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {topWinners.map((s, i) => (
+              <div key={s.name} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{
+                  width: 18, height: 18, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center",
+                  background: i < 3 ? "rgba(245,158,11,0.15)" : "var(--surface-2)",
+                  fontSize: 9, fontWeight: 800, color: i < 3 ? "#f59e0b" : "var(--text-4)",
+                }}>{i + 1}</span>
+                <span style={{ width: 90, fontSize: 11, fontWeight: 700, color: "var(--text-1)", fontFamily: "var(--font-body)" }}>
+                  {s.name}
+                </span>
+                <div style={{ flex: 1, height: 16, background: "var(--surface-2)", borderRadius: 4, overflow: "hidden" }}>
+                  <div style={{
+                    width: `${Math.min((s.pnl / stockBarMax) * 100, 100)}%`,
+                    height: "100%", borderRadius: 4,
+                    background: "linear-gradient(90deg, rgba(16,185,129,0.4), rgba(16,185,129,0.8))",
+                  }} />
+                </div>
+                <span style={{ width: 65, textAlign: "right", fontSize: 10, fontWeight: 700, color: "#10b981", fontFamily: "var(--font-mono)" }}>
+                  +{s.pnl >= 1e5 ? `${(s.pnl / 1e5).toFixed(2)}L` : `${(s.pnl / 1e3).toFixed(1)}K`}
+                </span>
+                <span style={{ width: 55, textAlign: "right", fontSize: 9, color: "var(--text-3)", fontFamily: "var(--font-mono)" }}>
+                  {s.trades} trade{s.trades > 1 ? "s" : ""}
+                </span>
+              </div>
+            ))}
+            {topLosers.length > 0 && (
+              <>
+                <div style={{ borderTop: "1px solid var(--border)", margin: "6px 0" }} />
+                <div style={{ ...labelStyle, fontSize: 9, color: "#ef4444", marginBottom: 2 }}>BIGGEST LOSERS</div>
+                {topLosers.map(s => (
+                  <div key={s.name} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{ width: 18 }} />
+                    <span style={{ width: 90, fontSize: 11, fontWeight: 600, color: "var(--text-3)" }}>{s.name}</span>
+                    <div style={{ flex: 1 }} />
+                    <span style={{ width: 65, textAlign: "right", fontSize: 10, fontWeight: 700, color: "#ef4444", fontFamily: "var(--font-mono)" }}>
+                      {s.pnl >= -1e5 ? `${(s.pnl / 1e3).toFixed(1)}K` : `${(s.pnl / 1e5).toFixed(2)}L`}
+                    </span>
+                    <span style={{ width: 55, textAlign: "right", fontSize: 9, color: "var(--text-3)", fontFamily: "var(--font-mono)" }}>
+                      {s.trades} trade{s.trades > 1 ? "s" : ""}
+                    </span>
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Trade Type Performance */}
+        <div style={cardStyle}>
+          <div style={titleStyle}>Strategy Breakdown</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {tradeTypes.map(t => {
+              const isProfit = t.pnl >= 0;
+              return (
+                <div key={t.type} style={{
+                  padding: "12px 14px", borderRadius: 10,
+                  background: "var(--surface-2)", border: "1px solid var(--border)",
+                }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-1)" }}>{t.type}</span>
+                    <span style={{
+                      fontSize: 12, fontWeight: 800, fontFamily: "var(--font-mono)",
+                      color: isProfit ? "#10b981" : "#ef4444",
+                    }}>
+                      {isProfit ? "+" : ""}{Math.abs(t.pnl) >= 1e5 ? `${(t.pnl / 1e5).toFixed(2)}L` : `${(t.pnl / 1e3).toFixed(1)}K`}
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", gap: 16, fontSize: 10, color: "var(--text-3)", fontFamily: "var(--font-mono)" }}>
+                    <span>{t.trades} trades</span>
+                    <span>{t.winRate.toFixed(0)}% win</span>
+                    <span style={{ color: isProfit ? "rgba(16,185,129,0.7)" : "rgba(239,68,68,0.7)" }}>
+                      ROI {t.capital > 0 ? ((t.pnl / t.capital) * 100).toFixed(1) : 0}%
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Row 3: Winning Patterns + Holding Period */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        {/* Winning Patterns */}
+        <div style={cardStyle}>
+          <div style={titleStyle}>Winning vs Losing Patterns</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div style={{ padding: 14, borderRadius: 10, background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.15)" }}>
+              <div style={{ fontSize: 10, color: "#10b981", fontWeight: 700, marginBottom: 10, letterSpacing: "0.08em" }}>WINNERS</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <div>
+                  <div style={labelStyle}>AVG HOLD</div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: "var(--text-1)", fontFamily: "var(--font-mono)" }}>
+                    {avgWinDays.toFixed(1)} <span style={{ fontSize: 10, color: "var(--text-3)" }}>days</span>
+                  </div>
+                </div>
+                <div>
+                  <div style={labelStyle}>AVG SIZE</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text-1)", fontFamily: "var(--font-mono)" }}>
+                    {avgWinSize >= 1e5 ? `${(avgWinSize / 1e5).toFixed(1)}L` : `${(avgWinSize / 1e3).toFixed(0)}K`}
+                  </div>
+                </div>
+                <div>
+                  <div style={labelStyle}>COUNT</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#10b981", fontFamily: "var(--font-mono)" }}>
+                    {analysis.totalWins}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div style={{ padding: 14, borderRadius: 10, background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.15)" }}>
+              <div style={{ fontSize: 10, color: "#ef4444", fontWeight: 700, marginBottom: 10, letterSpacing: "0.08em" }}>LOSERS</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <div>
+                  <div style={labelStyle}>AVG HOLD</div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: "var(--text-1)", fontFamily: "var(--font-mono)" }}>
+                    {avgLossDays.toFixed(1)} <span style={{ fontSize: 10, color: "var(--text-3)" }}>days</span>
+                  </div>
+                </div>
+                <div>
+                  <div style={labelStyle}>AVG SIZE</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text-1)", fontFamily: "var(--font-mono)" }}>
+                    {avgLossSize >= 1e5 ? `${(avgLossSize / 1e5).toFixed(1)}L` : `${(avgLossSize / 1e3).toFixed(0)}K`}
+                  </div>
+                </div>
+                <div>
+                  <div style={labelStyle}>COUNT</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#ef4444", fontFamily: "var(--font-mono)" }}>
+                    {analysis.totalLosses}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Holding Period Analysis */}
+        <div style={cardStyle}>
+          <div style={titleStyle}>P&L by Holding Period</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {(Object.entries(holdBuckets) as [string, number][]).filter(([, v]) => v > 0).map(([bucket, count]) => {
+              const pnl = holdBucketPnl[bucket as keyof typeof holdBucketPnl];
+              const isProfit = pnl >= 0;
+              const maxPnl = Math.max(...Object.values(holdBucketPnl).map(Math.abs)) || 1;
+              return (
+                <div key={bucket} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ width: 72, ...labelStyle, textAlign: "right", fontSize: 9 }}>{bucket}</span>
+                  <div style={{ flex: 1, height: 20, background: "var(--surface-2)", borderRadius: 5, overflow: "hidden", position: "relative" }}>
+                    <div style={{
+                      width: `${(Math.abs(pnl) / maxPnl) * 100}%`,
+                      height: "100%", borderRadius: 5,
+                      background: isProfit
+                        ? "linear-gradient(90deg, rgba(16,185,129,0.3), rgba(16,185,129,0.7))"
+                        : "linear-gradient(90deg, rgba(239,68,68,0.3), rgba(239,68,68,0.7))",
+                    }} />
+                    <span style={{
+                      position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)",
+                      fontSize: 9, fontWeight: 700, color: "var(--text-2)", fontFamily: "var(--font-mono)",
+                    }}>
+                      {count} trades
+                    </span>
+                  </div>
+                  <span style={{
+                    width: 60, textAlign: "right", fontSize: 10, fontWeight: 700,
+                    color: isProfit ? "#10b981" : "#ef4444", fontFamily: "var(--font-mono)",
+                  }}>
+                    {isProfit ? "+" : ""}{Math.abs(pnl) >= 1e5 ? `${(pnl / 1e5).toFixed(1)}L` : `${(pnl / 1e3).toFixed(1)}K`}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Key Insights summary */}
+      <div style={{
+        ...cardStyle,
+        background: "linear-gradient(135deg, rgba(245,158,11,0.05), rgba(16,185,129,0.05))",
+        border: "1px solid rgba(245,158,11,0.2)",
+      }}>
+        <div style={titleStyle}>Key Insights</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+          {(() => {
+            const bestMonth = [...monthly].sort((a, b) => b.pnl - a.pnl)[0];
+            const worstMonth = [...monthly].sort((a, b) => a.pnl - b.pnl)[0];
+            const bestType = [...tradeTypes].sort((a, b) => b.pnl - a.pnl)[0];
+            const bestBucket = Object.entries(holdBucketPnl).sort(([, a], [, b]) => b - a)[0];
+            const avgRoi = analysis.totalClosed > 0
+              ? (trades.filter(t => t.status === "Closed").reduce((s, t) => {
+                  const pnl = t.brokerPl ?? ((t.sellPrice ?? t.buyPrice) - t.buyPrice) * t.quantity;
+                  return s + (t.capitalUsed > 0 ? (pnl / t.capitalUsed) * 100 : 0);
+                }, 0) / analysis.totalClosed)
+              : 0;
+            const insights = [
+              { label: "Best Month", value: bestMonth ? `${monthLabel(bestMonth.month)} — ${rupees(bestMonth.pnl)}` : "—", color: "#10b981" },
+              { label: "Worst Month", value: worstMonth ? `${monthLabel(worstMonth.month)} — ${rupees(worstMonth.pnl)}` : "—", color: "#ef4444" },
+              { label: "Best Strategy", value: bestType ? `${bestType.type} (${bestType.winRate.toFixed(0)}% win)` : "—", color: "#f59e0b" },
+              { label: "Sweet Spot Hold", value: bestBucket ? `${bestBucket[0]}` : "—", color: "#8b5cf6" },
+              { label: "Avg ROI/Trade", value: `${avgRoi.toFixed(2)}%`, color: avgRoi >= 0 ? "#10b981" : "#ef4444" },
+              { label: "Top Stock", value: topWinners[0]?.name ?? "—", color: "#f59e0b" },
+            ];
+            return insights.map(ins => (
+              <div key={ins.label}>
+                <div style={labelStyle}>{ins.label.toUpperCase()}</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: ins.color, fontFamily: "var(--font-body)", marginTop: 4 }}>
+                  {ins.value}
+                </div>
+              </div>
+            ));
+          })()}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Sort types ─────────────────────────────────────────────────────────────────
 
 type SortCol = "entryDate" | "exitDate" | "stockName" | "tradeType" | "buyPrice" | "sellPrice"
@@ -1787,6 +2255,7 @@ export function TradingJournalPage() {
           <motion.div key="equity" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
             style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
             <EquityCurve trades={trades} />
+            <TradingInsights trades={trades} />
           </motion.div>
         )}
 
