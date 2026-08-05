@@ -239,7 +239,7 @@ export function Header({ title, subtitle }: HeaderProps) {
           {[
             { label: "NAV",     val: journalSummary ? formatCurrency(journalSummary.nav, true) : "—", color: "var(--text-1)" },
             { label: "DAY P&L", val: journalSummary ? formatPct(journalSummary.day_pnl_pct) : "—", color: journalSummary ? (journalSummary.day_pnl_pct >= 0 ? "var(--green)" : "var(--red)") : "var(--text-3)" },
-            { label: "DD",      val: journalSummary ? `-${Math.abs(journalSummary.drawdown).toFixed(2)}%` : "—", color: journalSummary && journalSummary.drawdown > 5 ? "var(--red)" : "var(--text-3)" },
+            { label: "FY P&L",  val: journalSummary ? formatCurrency(journalSummary.realized_pnl, true) : "—", color: journalSummary ? (journalSummary.realized_pnl >= 0 ? "var(--green)" : "var(--red)") : "var(--text-3)" },
           ].map(item => (
             <div key={item.label}>
               <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.12em", color: "var(--text-4)", fontFamily: "var(--font-body)", marginBottom: 2 }}>{item.label}</div>
