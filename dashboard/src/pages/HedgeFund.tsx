@@ -206,7 +206,9 @@ function CouncilChamber({ analysts, isPending, ticker, activeAgent }: {
               "--r": "130px",
               animation:`hf-orbit-cw ${22 + i * 0.4}s linear ${i * 0.15}s infinite`,
             } as any}>
-              <OrbitChip name={a.name} active={isPending} firing={isActive} />
+              <div title={`${a.name} — ${a.title}\n${a.style ?? ""}`}>
+                <OrbitChip name={a.name} active={isPending} firing={isActive} />
+              </div>
             </div>
           );
         })}
@@ -224,7 +226,9 @@ function CouncilChamber({ analysts, isPending, ticker, activeAgent }: {
               "--r": "185px",
               animation:`hf-orbit-ccw ${30 + i * 0.6}s linear ${i * 0.2}s infinite`,
             } as any}>
-              <OrbitChip name={a.name} active={isPending} firing={isActive} />
+              <div title={`${a.name} — ${a.title}\n${a.style ?? ""}`}>
+                <OrbitChip name={a.name} active={isPending} firing={isActive} />
+              </div>
             </div>
           );
         })}
@@ -368,7 +372,7 @@ function SignalBar({ pct, color, label }: { pct:number; color:string; label:stri
 
 // ── Agent card ────────────────────────────────────────────────────────────────
 
-function AgentCard({ signal, index }: { signal:AgentSignal; index:number }) {
+function AgentCard({ signal, index, style: agentStyle }: { signal:AgentSignal; index:number; style?:string }) {
   const [expanded, setExpanded] = useState(false);
   const sig   = signal.error ? "neutral" : signal.signal;
   const color = SIG_COLOR[sig];
@@ -402,6 +406,11 @@ function AgentCard({ signal, index }: { signal:AgentSignal; index:number }) {
           <div style={{ flex:1, minWidth:0 }}>
             <div style={{ fontSize:12, fontWeight:700, color:"var(--text-1)", letterSpacing:"-0.01em" }}>{signal.name}</div>
             <div style={{ fontSize:10, color:"var(--text-4)", marginTop:1 }}>{signal.title}</div>
+            {agentStyle && (
+              <div style={{ fontSize:9, color:"var(--text-4)", marginTop:3, lineHeight:1.4, opacity:0.7, fontStyle:"italic" }}>
+                {agentStyle}
+              </div>
+            )}
           </div>
           <div style={{ textAlign:"right", flexShrink:0 }}>
             <div style={{ fontFamily:"var(--font-mono)", fontSize:13, fontWeight:700, color: isFib ? "#60a5fa" : isPolicy ? "#fbbf24" : color }}>
@@ -699,7 +708,7 @@ export function HedgeFundPage() {
               {analysts.map(a => {
                 const on = selectedAnalysts.length === 0 || selectedAnalysts.includes(a.key);
                 return (
-                  <button key={a.key} onClick={() => toggleAnalyst(a.key)}
+                  <button key={a.key} onClick={() => toggleAnalyst(a.key)} title={`${a.name} — ${a.title}\n${a.style ?? ""}`}
                     style={{ padding:"2px 8px", borderRadius:4, fontSize:9, fontWeight:600, fontFamily:"var(--font-mono)", cursor:"pointer", border:`1px solid ${on ? "rgba(167,139,250,0.35)" : "rgba(167,139,250,0.12)"}`, background: on ? "rgba(167,139,250,0.12)" : "transparent", color: on ? "var(--accent)" : "var(--text-4)", transition:"all 0.12s" }}>
                     {a.name.split(" ")[0]}
                   </button>
@@ -737,7 +746,7 @@ export function HedgeFundPage() {
         {completedSignals.length > 0 && (
           <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))", gap:10 }}>
             {completedSignals.map((sig, i) => (
-              <AgentCard key={sig.analyst} signal={sig} index={i} />
+              <AgentCard key={sig.analyst} signal={sig} index={i} style={analysts.find(a => a.key === sig.analyst)?.style} />
             ))}
           </div>
         )}

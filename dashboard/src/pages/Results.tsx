@@ -1,14 +1,16 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, lazy, Suspense } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Trophy, Star, ThumbsUp, Minus, TrendingDown as WeakIcon,
   ExternalLink, FileText, RefreshCw, Search,
   Clock, BarChart3, TrendingUp, TrendingDown, Filter,
-  Loader2, LayoutGrid, List, Play, CheckCircle2,
+  Loader2, LayoutGrid, List, Play, CheckCircle2, Zap,
 } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { useQuarterlyResults, usePipelineStatus, type QuarterlyResult, type Rating } from "@/api/market-queries";
 import { api } from "@/api/client";
+
+const EarningsPulsePage = lazy(() => import("@/pages/EarningsPulse").then(m => ({ default: m.EarningsPulsePage })));
 
 // ── Rating config ─────────────────────────────────────────────────────────────
 const RATING_CONFIG: Record<Rating, {
@@ -331,6 +333,48 @@ function ResultListRow({ r, idx }: { r: QuarterlyResult; idx: number }) {
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 export function ResultsPage() {
+  const [subTab, setSubTab] = useState<"quarterly" | "earnings">("quarterly");
+
+  if (subTab === "earnings") {
+    return (
+      <div style={{ background: "var(--bg)", minHeight: "100vh" }}>
+        <Header title="Results" />
+        <div style={{ padding: "12px 24px 0" }}>
+          <ResultsSubTabs active={subTab} onChange={setSubTab} />
+        </div>
+        <Suspense fallback={<div style={{ padding: 40, textAlign: "center", color: "var(--text-4)" }}><Loader2 style={{ animation: "spin 1s linear infinite" }} /></div>}>
+          <EarningsPulsePage embedded />
+        </Suspense>
+      </div>
+    );
+  }
+
+  return <QuarterlyResultsView subTab={subTab} setSubTab={setSubTab} />;
+}
+
+function ResultsSubTabs({ active, onChange }: { active: "quarterly" | "earnings"; onChange: (t: "quarterly" | "earnings") => void }) {
+  return (
+    <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
+      {([
+        { key: "quarterly" as const, label: "Quarterly Results", icon: <BarChart3 style={{ width: 12, height: 12 }} /> },
+        { key: "earnings" as const, label: "Earnings Pulse", icon: <Zap style={{ width: 12, height: 12 }} /> },
+      ]).map(t => (
+        <button key={t.key} onClick={() => onChange(t.key)} style={{
+          display: "flex", alignItems: "center", gap: 6,
+          padding: "7px 18px", borderRadius: 9999, border: "none", cursor: "pointer",
+          background: active === t.key ? "var(--accent)" : "var(--surface-2)",
+          color: active === t.key ? "#fff" : "var(--text-3)",
+          fontSize: 12, fontWeight: active === t.key ? 700 : 500,
+          fontFamily: "var(--font-body)", transition: "all 150ms",
+        }}>
+          {t.icon} {t.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function QuarterlyResultsView({ subTab, setSubTab }: { subTab: "quarterly" | "earnings"; setSubTab: (t: "quarterly" | "earnings") => void }) {
   const [ratingFilter, setRatingFilter] = useState<Rating | "ALL">("ALL");
   const [industryFilter, setIndustryFilter] = useState<string>("ALL");
   const [search, setSearch] = useState("");
@@ -406,9 +450,10 @@ export function ResultsPage() {
 
   return (
     <div style={{ background: "var(--bg)", minHeight: "100vh" }}>
-      <Header title="Earnings Results" />
+      <Header title="Results" />
 
       <div style={{ padding: "20px 24px", maxWidth: 1600, margin: "0 auto" }}>
+        <ResultsSubTabs active={subTab} onChange={setSubTab} />
 
         {/* Page title */}
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 20, gap: 16, flexWrap: "wrap" }}>
@@ -419,7 +464,7 @@ export function ResultsPage() {
               display: "flex", alignItems: "center", gap: 10,
             }}>
               <BarChart3 style={{ width: 24, height: 24, color: "var(--accent)" }} />
-              Earnings Results
+              Quarterly Results
             </h1>
             <p style={{ fontSize: 12, color: "var(--text-3)", fontFamily: "var(--font-body)", marginTop: 5, marginBottom: 0 }}>
               BSE · NSE · Trendlyne official filings{dateRange ? ` · ${dateRange}` : ""} · {results.length} result{results.length !== 1 ? "s" : ""} loaded

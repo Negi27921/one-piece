@@ -15,7 +15,6 @@ const NAV = [
   { to: "/screener",   icon: ScanSearch,      label: "Screener",   end: false },
   { to: "/portfolio",  icon: LayoutDashboard, label: "Portfolio",  end: false },
   { to: "/results",         icon: TrendingUp,      label: "Results",    end: false },
-  { to: "/earnings-pulse", icon: Zap,             label: "Earnings",   end: false },
   { to: "/watchlist",      icon: Star,            label: "Watchlist",  end: false },
   { to: "/hedge-fund",     icon: BrainCircuit,    label: "Hedge Fund", end: false },
   { to: "/journal",    icon: BookOpen,        label: "Journal",    end: false },

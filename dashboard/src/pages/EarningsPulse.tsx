@@ -419,7 +419,7 @@ function EmptyState() {
 }
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
-export function EarningsPulsePage() {
+export function EarningsPulsePage({ embedded }: { embedded?: boolean } = {}) {
   const [search, setSearch] = useState("");
   const [ratingFilter, setRatingFilter] = useState<string>("");
   const [quarterFilter, setQuarterFilter] = useState<string>("");
@@ -440,8 +440,8 @@ export function EarningsPulsePage() {
   };
 
   return (
-    <div style={{ background: "var(--bg)", minHeight: "100vh" }}>
-      <Header title="Earnings Pulse" />
+    <div style={{ background: embedded ? "transparent" : "var(--bg)", minHeight: embedded ? "auto" : "100vh" }}>
+      {!embedded && <Header title="Earnings Pulse" />}
 
       <div style={{ padding: "20px 24px", maxWidth: 1200, margin: "0 auto" }}>
 

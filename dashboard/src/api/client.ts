@@ -79,7 +79,7 @@ export const api = {
       path.includes("/watchlists/analyse") ? TIMEOUT_ANALYSE_MS
         : path.includes("/hedge-fund/analyze") ? TIMEOUT_HEDGE_MS
         : path.includes("/bulk-upload") ? TIMEOUT_ANALYSE_MS
-        : path.includes("/chat/") || path.includes("/scan/chunk") ? TIMEOUT_CHAT_MS
+        : path.includes("/chat") || path.includes("/scan/chunk") ? TIMEOUT_CHAT_MS
         : TIMEOUT_MS,
     ),
   put: <T>(path: string, body?: unknown) =>

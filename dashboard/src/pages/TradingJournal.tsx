@@ -1562,20 +1562,28 @@ export function TradingJournalPage() {
       return cmp != null ? sum + (cmp - t.buyPrice) * t.quantity : sum;
     }, 0);
 
-  // ── On mount: pull from backend DB, merge with localStorage ──
+  // ── On mount: pull from backend DB, merge with localStorage, push local-only trades ──
   useEffect(() => {
     setSyncStatus("syncing");
     api.get<Trade[]>("/journal/trades")
       .then(serverTrades => {
-        if (!serverTrades?.length) { setSyncStatus("synced"); return; }
+        const localTrades = loadTrades();
+        const serverIds = new Set((serverTrades ?? []).map(t => t.id));
         // Merge: build map from localStorage, overwrite/add from server
-        const localMap = new Map(loadTrades().map(t => [t.id, t]));
-        for (const t of serverTrades) localMap.set(t.id, t);
+        const localMap = new Map(localTrades.map(t => [t.id, t]));
+        for (const t of (serverTrades ?? [])) localMap.set(t.id, t);
         const merged = Array.from(localMap.values())
           .sort((a, b) => new Date(b.entryDate).getTime() - new Date(a.entryDate).getTime());
         setTrades(merged);
         saveTrades(merged);
         setSyncStatus("synced");
+
+        // Push local-only trades to server in background
+        const localOnly = localTrades.filter(t => !serverIds.has(t.id));
+        if (localOnly.length > 0) {
+          api.post("/journal/bulk-upload", { trades: localOnly })
+            .catch(() => {/* background sync failure is non-fatal */});
+        }
       })
       .catch(() => setSyncStatus("error"));
   }, []);
