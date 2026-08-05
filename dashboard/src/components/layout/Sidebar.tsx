@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import {
   Terminal, ScanSearch, LayoutDashboard,
   Settings2, ChevronLeft, LogOut,
-  Sun, Moon, BookOpen, TrendingUp, Star, Zap, BrainCircuit,
+  Sun, Moon, BookOpen, TrendingUp, Star, BrainCircuit,
 } from "lucide-react";
 import { AUTH_KEY, LOCK_KEY, FAIL_KEY } from "@/pages/Login";
 import { useUIStore } from "@/store/ui";
